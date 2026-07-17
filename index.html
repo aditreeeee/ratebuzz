@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rate Intelligence Platform</title>
+<link rel="icon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/src/styles/tokens.css" />
+<link rel="stylesheet" href="/src/styles/global.css" />
+<link rel="stylesheet" href="/src/styles/components.css" />
+<link rel="stylesheet" href="/src/styles/layout.css" />
+<link rel="stylesheet" href="/src/styles/login.css" />
+<link rel="stylesheet" href="/src/styles/pages.css" />
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.26.2?deps=react@18.3.1,react-dom@18.3.1",
+    "lucide-react": "https://esm.sh/lucide-react@0.446.0?deps=react@18.3.1"
+  }
+}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  function showError(message) {
+    var root = document.getElementById("root");
+    root.innerHTML =
+      '<pre style="padding:24px;font-family:monospace;font-size:13px;white-space:pre-wrap;color:#c72f3d;">' +
+      String(message).replace(/</g, "&lt;") +
+      "</pre>";
+  }
+  window.addEventListener("error", function (e) { showError(e.message + "\n" + (e.error && e.error.stack || "")); });
+  window.addEventListener("unhandledrejection", function (e) { showError("Unhandled promise rejection: " + (e.reason && e.reason.stack || e.reason)); });
+
+  async function boot() {
+    try {
+      if (!("serviceWorker" in navigator)) {
+        showError("This browser does not support Service Workers, required for this no-build setup.");
+        return;
+      }
+      await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      if (!navigator.serviceWorker.controller) {
+        if (sessionStorage.getItem("sw-reload-attempted")) {
+          showError("Service Worker registered but never took control of this page after a reload.");
+          return;
+        }
+        sessionStorage.setItem("sw-reload-attempted", "1");
+        location.reload();
+        return;
+      }
+      sessionStorage.removeItem("sw-reload-attempted");
+      await import("/src/main.jsx");
+    } catch (err) {
+      showError((err && err.stack) || err);
+    }
+  }
+  boot();
+</script>
+</body>
+</html>
