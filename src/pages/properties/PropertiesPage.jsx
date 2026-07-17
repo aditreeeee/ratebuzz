@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Building2, BedDouble, Tag, Settings, Copy, Archive, Trash2, Pencil, MapPin, ArrowUpRight } from "lucide-react";
+import {
+  Plus, Building2, BedDouble, Tag, Settings, Copy, Archive, Trash2, Pencil,
+  MapPin, ArrowUpRight, RotateCcw, Building,
+} from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
@@ -11,23 +14,30 @@ import { Button } from "../../components/ui/Button.jsx";
 import { StatusBadge } from "../../components/ui/Badge.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
+import { Checkbox } from "../../components/ui/Checkbox.jsx";
+import { BulkActionBar } from "../../components/ui/BulkActionBar.jsx";
+import { TagChips } from "../../components/ui/TagChips.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
-import { usePaginatedSortedFiltered } from "../../lib/format.js";
+import { useSelection } from "../../hooks/useSelection.js";
+import { usePaginatedSortedFiltered, formatDate } from "../../lib/format.js";
 import { STATUSES, PROPERTY_TYPES } from "../../mocks/properties.js";
 import { PropertyForm } from "./PropertyForm.jsx";
 import { PropertyIdLookup } from "./PropertyIdLookup.jsx";
+import { PropertyDetailModal } from "./PropertyDetailModal.jsx";
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 6;
 
-const COLUMNS = [
-  { key: "id", label: "Property ID", sortable: true, width: 130 },
+const BASE_COLUMNS = [
+  { key: "id", label: "Property ID", sortable: true, width: 120 },
   { key: "name", label: "Name", sortable: true },
-  { key: "propertyType", label: "Type", sortable: true },
-  { key: "city", label: "Location", sortable: false },
-  { key: "rooms", label: "Rooms", sortable: false, width: 90 },
-  { key: "ratePlans", label: "Rate Plans", sortable: false, width: 100 },
-  { key: "status", label: "Status", sortable: true, width: 110 },
+  { key: "propertyType", label: "Type", sortable: true, width: 100 },
+  { key: "city", label: "Location", sortable: false, width: 160 },
+  { key: "tags", label: "Tags", sortable: false, width: 150 },
+  { key: "rooms", label: "Rooms", sortable: false, width: 80 },
+  { key: "ratePlans", label: "Rate Plans", sortable: false, width: 90 },
+  { key: "status", label: "Status", sortable: true, width: 100 },
+  { key: "lastModifiedAt", label: "Last Modified", sortable: true, width: 150 },
   { key: "actions", label: "", sortable: false, width: 160 },
 ];
 
@@ -38,6 +48,10 @@ export function PropertiesPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [starFilter, setStarFilter] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
@@ -45,6 +59,12 @@ export function PropertiesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [viewing, setViewing] = useState(null);
+
+  const countries = useMemo(() => [...new Set(data.properties.map((p) => p.country))].sort(), [data.properties]);
+  const cities = useMemo(() => [...new Set(data.properties.map((p) => p.city))].sort(), [data.properties]);
+  const brands = useMemo(() => [...new Set(data.properties.map((p) => p.brand))].sort(), [data.properties]);
 
   const onSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -54,20 +74,48 @@ export function PropertiesPage() {
     }
   };
 
+  const filtersActive = typeFilter || statusFilter || countryFilter || cityFilter || brandFilter || starFilter || search;
+
+  const resetFilters = () => {
+    setSearch(""); setTypeFilter(""); setStatusFilter("");
+    setCountryFilter(""); setCityFilter(""); setBrandFilter(""); setStarFilter("");
+    setPage(1);
+  };
+
   const { pageData, total } = useMemo(
     () =>
       usePaginatedSortedFiltered({
         data: data.properties,
         search,
         searchFields: ["id", "name", "city", "country", "brand"],
-        filters: { propertyType: typeFilter, status: statusFilter },
+        filters: {
+          propertyType: typeFilter,
+          status: statusFilter,
+          country: countryFilter,
+          city: cityFilter,
+          brand: brandFilter,
+          starRating: starFilter ? Number(starFilter) : "",
+        },
         sortKey,
         sortDir,
         page,
         pageSize: PAGE_SIZE,
       }),
-    [data.properties, search, typeFilter, statusFilter, sortKey, sortDir, page]
+    [data.properties, search, typeFilter, statusFilter, countryFilter, cityFilter, brandFilter, starFilter, sortKey, sortDir, page]
   );
+
+  const visibleIds = pageData.map((p) => p.id);
+  const selection = useSelection(visibleIds);
+
+  const columns = [
+    {
+      key: "select",
+      label: <Checkbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="Select all" />,
+      sortable: false,
+      width: 40,
+    },
+    ...BASE_COLUMNS,
+  ];
 
   const stats = [
     { label: "Total Properties", value: data.properties.length, icon: Building2, to: "/portal/properties" },
@@ -77,7 +125,7 @@ export function PropertiesPage() {
   ];
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
-  const openEdit = (p) => { setEditing(p); setFormOpen(true); };
+  const openEdit = (p) => { setViewing(null); setEditing(p); setFormOpen(true); };
 
   const handleSubmit = (form) => {
     if (editing) {
@@ -100,10 +148,32 @@ export function PropertiesPage() {
     toast.info(`${p.name} archived.`);
   };
 
-  const handleDelete = () => {
-    data.deleteProperty(confirmDelete.id);
-    toast.success(`${confirmDelete.name} deleted.`);
+  const handleDeletePermanently = () => {
+    data.deletePropertyPermanently(confirmDelete.id);
+    toast.success(`${confirmDelete.name} permanently deleted.`);
     setConfirmDelete(null);
+  };
+
+  const handleBulkArchive = () => {
+    data.bulkArchiveProperties(selection.selected);
+    toast.info(`${selection.count} propert${selection.count === 1 ? "y" : "ies"} archived.`);
+    selection.clear();
+  };
+  const handleBulkDuplicate = () => {
+    const copies = data.bulkDuplicateProperties(selection.selected);
+    toast.info(`${copies.length} propert${copies.length === 1 ? "y" : "ies"} duplicated.`);
+    selection.clear();
+  };
+  const handleBulkDelete = () => {
+    data.bulkDeleteProperties(selection.selected);
+    toast.success(`${selection.count} propert${selection.count === 1 ? "y" : "ies"} permanently deleted.`);
+    selection.clear();
+    setConfirmBulkDelete(false);
+  };
+  const handleBulkStatus = (status) => {
+    data.bulkChangeStatusProperties(selection.selected, status);
+    toast.info(`Status updated to ${status} for ${selection.count} propert${selection.count === 1 ? "y" : "ies"}.`);
+    selection.clear();
   };
 
   return (
@@ -137,29 +207,36 @@ export function PropertiesPage() {
       <Card padded={false}>
         <div style={{ padding: "20px 20px 0" }}>
           <div className="page-toolbar">
-            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search properties..." />
-            <Select
-              options={PROPERTY_TYPES}
-              placeholder="All Types"
-              value={typeFilter}
-              onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-              style={{ maxWidth: 170 }}
-            />
-            <Select
-              options={STATUSES}
-              placeholder="All Statuses"
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              style={{ maxWidth: 170 }}
-            />
+            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Quick search properties..." />
+            <Select options={PROPERTY_TYPES} placeholder="All Types" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
+            <Select options={STATUSES} placeholder="All Statuses" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
+            <Select options={countries} placeholder="All Countries" value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} />
+            <Select options={cities} placeholder="All Cities" value={cityFilter} onChange={(e) => { setCityFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
+            <Select options={brands} placeholder="All Brands" value={brandFilter} onChange={(e) => { setBrandFilter(e.target.value); setPage(1); }} style={{ maxWidth: 160 }} />
+            <Select options={["1", "2", "3", "4", "5"]} placeholder="All Ratings" value={starFilter} onChange={(e) => { setStarFilter(e.target.value); setPage(1); }} style={{ maxWidth: 130 }} />
+            {filtersActive && (
+              <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
+                <RotateCcw size={13} strokeWidth={2} /> Reset
+              </button>
+            )}
             <div className="page-toolbar__spacer" />
             <Button variant="primary" size="md" icon={Plus} onClick={openCreate}>Add Property</Button>
           </div>
         </div>
 
         <div style={{ padding: 20 }}>
+          <BulkActionBar
+            count={selection.count}
+            onClear={selection.clear}
+            onArchive={handleBulkArchive}
+            onDuplicate={handleBulkDuplicate}
+            onDelete={() => setConfirmBulkDelete(true)}
+            statusOptions={STATUSES}
+            onChangeStatus={handleBulkStatus}
+          />
+
           <Table
-            columns={COLUMNS}
+            columns={columns}
             data={pageData}
             sortKey={sortKey}
             sortDir={sortDir}
@@ -175,10 +252,20 @@ export function PropertiesPage() {
             }
             renderRow={(p) => (
               <tr key={p.id}>
-                <td className="tabular table__cell-muted">{p.id}</td>
                 <td>
-                  <div className="table__cell-primary">{p.name}</div>
-                  <div className="table__cell-muted">{p.brand}</div>
+                  <Checkbox checked={selection.selected.includes(p.id)} onChange={() => selection.toggle(p.id)} label={`Select ${p.name}`} />
+                </td>
+                <td className="tabular table__cell-muted">{p.id}</td>
+                <td className="row-link" onClick={() => setViewing(p)}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="property-thumb">
+                      {p.logoUrl ? <img src={p.logoUrl} alt="" /> : <Building size={15} strokeWidth={2} />}
+                    </div>
+                    <div>
+                      <div className="table__cell-primary">{p.name}</div>
+                      <div className="table__cell-muted">{p.brand}</div>
+                    </div>
+                  </div>
                 </td>
                 <td>{p.propertyType}</td>
                 <td>
@@ -187,15 +274,23 @@ export function PropertiesPage() {
                     {p.city}, {p.country}
                   </span>
                 </td>
+                <td><TagChips tags={p.tags} /></td>
                 <td className="tabular">{data.roomCountFor(p.id)}</td>
                 <td className="tabular">{data.ratePlanCountFor(p.id)}</td>
                 <td><StatusBadge status={p.status} /></td>
+                <td className="tabular table__cell-muted">
+                  {formatDate(p.lastModifiedAt)}
+                  <div className="table__cell-muted">{p.lastModifiedBy}</div>
+                </td>
                 <td>
                   <div className="table__actions">
                     <button className="table__action-btn" title="Edit" onClick={() => openEdit(p)}><Pencil size={15} strokeWidth={2} /></button>
                     <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(p)}><Copy size={15} strokeWidth={2} /></button>
-                    <button className="table__action-btn" title="Archive" onClick={() => handleArchive(p)}><Archive size={15} strokeWidth={2} /></button>
-                    <button className="table__action-btn table__action-btn--danger" title="Delete" onClick={() => setConfirmDelete(p)}><Trash2 size={15} strokeWidth={2} /></button>
+                    {p.status !== "Archived" ? (
+                      <button className="table__action-btn" title="Archive" onClick={() => handleArchive(p)}><Archive size={15} strokeWidth={2} /></button>
+                    ) : (
+                      <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(p)}><Trash2 size={15} strokeWidth={2} /></button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -207,13 +302,25 @@ export function PropertiesPage() {
 
       <PropertyForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} />
 
+      <PropertyDetailModal property={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
+
       <ConfirmModal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        onConfirm={handleDelete}
-        title="Delete Property"
-        message={`Are you sure you want to delete "${confirmDelete?.name}"? This will also remove its rooms and rate plans. This action cannot be undone.`}
-        confirmLabel="Delete"
+        onConfirm={handleDeletePermanently}
+        title="Delete Property Permanently"
+        message={`"${confirmDelete?.name}" is archived. Permanently deleting it will also remove its rooms and rate plans. This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        danger
+      />
+
+      <ConfirmModal
+        open={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Properties Permanently"
+        message={`Permanently delete ${selection.count} selected propert${selection.count === 1 ? "y" : "ies"}, along with their rooms and rate plans? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
         danger
       />
     </div>

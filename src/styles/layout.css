@@ -42,6 +42,7 @@
 .topbar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: var(--space-8); gap: var(--space-4); flex-wrap: wrap; }
 .topbar__title { font-size: 30px; color: var(--color-twilight); }
 .topbar__subtitle { color: var(--color-text-muted); margin-top: 6px; font-size: 14px; }
+.topbar__right { display: flex; align-items: center; gap: var(--space-5); }
 .topbar__user { display: flex; align-items: center; gap: 10px; }
 .topbar__avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--color-surf), var(--color-twilight)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
 .topbar__user-info { display: flex; flex-direction: column; line-height: 1.3; }

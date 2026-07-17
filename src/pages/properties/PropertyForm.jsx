@@ -2,19 +2,22 @@ import React, { useState } from "react";
 import { Modal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
-import { BRANDS, CURRENCIES, TIME_ZONES, STATUSES, PROPERTY_TYPES } from "../../mocks/properties.js";
+import { LogoUpload } from "../../components/ui/LogoUpload.jsx";
+import { TagPicker } from "../../components/ui/TagChips.jsx";
+import { BRANDS, CURRENCIES, TIME_ZONES, STATUSES, PROPERTY_TYPES, PROPERTY_TAGS } from "../../mocks/properties.js";
 
 const EMPTY = {
   name: "", brand: BRANDS[0], country: "", state: "", city: "",
   currency: CURRENCIES[0], timeZone: TIME_ZONES[0], starRating: 3,
-  propertyType: PROPERTY_TYPES[0], status: "Active", description: "",
+  propertyType: PROPERTY_TYPES[0], status: "Draft", description: "",
+  tags: [], logoUrl: "",
 };
 
 export function PropertyForm({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(initial || EMPTY);
 
   React.useEffect(() => {
-    setForm(initial || EMPTY);
+    setForm(initial ? { ...EMPTY, ...initial } : EMPTY);
   }, [initial, open]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -40,6 +43,12 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
       }
     >
       <form id="property-form" onSubmit={handleSubmit}>
+        <div className="form-grid__full">
+          <Field label="Property Logo" id="p-logo">
+            <LogoUpload value={form.logoUrl} onChange={(logoUrl) => setForm((f) => ({ ...f, logoUrl }))} />
+          </Field>
+        </div>
+
         <div className="form-grid">
           <Field label="Property Name" required id="p-name">
             <Input id="p-name" value={form.name} onChange={set("name")} required placeholder="e.g. Aurora Bay Resort" />
@@ -71,6 +80,11 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
           <Field label="Status" required id="p-status">
             <Select id="p-status" options={STATUSES} value={form.status} onChange={set("status")} />
           </Field>
+          <div className="form-grid__full">
+            <Field label="Tags" id="p-tags">
+              <TagPicker options={PROPERTY_TAGS} value={form.tags} onChange={(tags) => setForm((f) => ({ ...f, tags }))} />
+            </Field>
+          </div>
           <div className="form-grid__full">
             <Field label="Description" id="p-desc">
               <Textarea id="p-desc" value={form.description} onChange={set("description")} placeholder="Brief property description..." />

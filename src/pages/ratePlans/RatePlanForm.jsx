@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { Sparkles } from "lucide-react";
 import { Modal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { MEAL_PLANS, CANCELLATION_POLICIES, RATE_PLAN_STATUSES } from "../../mocks/ratePlans.js";
+import { RATE_PLAN_TEMPLATES } from "../../mocks/ratePlanTemplates.js";
 
 const EMPTY = {
   name: "", mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0],
@@ -41,6 +43,23 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel }) {
       {roomLabel && (
         <div className="rp-form__room-context">
           Linked Room: <strong>{roomLabel}</strong>
+        </div>
+      )}
+      {!initial && (
+        <div className="template-picker">
+          <div className="template-picker__label"><Sparkles size={13} strokeWidth={2} /> Quick-fill from a template</div>
+          <div className="template-picker__list">
+            {RATE_PLAN_TEMPLATES.map((t) => (
+              <button
+                type="button"
+                key={t.key}
+                className="template-picker__item"
+                onClick={() => setForm((f) => ({ ...f, ...t.values }))}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       <form id="rp-form" onSubmit={handleSubmit}>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useMemo } fr
 import { PROPERTIES } from "../mocks/properties.js";
 import { ROOMS } from "../mocks/rooms.js";
 import { RATE_PLANS } from "../mocks/ratePlans.js";
+import { useAuth } from "./AuthContext.jsx";
 
 const DataContext = createContext(null);
 
@@ -15,6 +16,9 @@ function nextId(items, prefix, base) {
   const nums = items.map((i) => Number(i.id.split("-")[1]) || base);
   return `${prefix}-${Math.max(...nums, base) + 1}`;
 }
+
+const inSet = (ids) => (item) => ids.includes(item.id);
+const notInSet = (ids) => (item) => !ids.includes(item.id);
 
 function reducer(state, action) {
   switch (action.type) {
@@ -31,6 +35,20 @@ function reducer(state, action) {
         properties: state.properties.filter((p) => p.id !== action.payload),
         rooms: state.rooms.filter((r) => r.propertyId !== action.payload),
       };
+    case "BULK_UPDATE_PROPERTIES":
+      return {
+        ...state,
+        properties: state.properties.map((p) => (action.ids.includes(p.id) ? action.updater(p) : p)),
+      };
+    case "BULK_ADD_PROPERTIES":
+      return { ...state, properties: [...action.payload, ...state.properties] };
+    case "BULK_DELETE_PROPERTIES":
+      return {
+        ...state,
+        properties: state.properties.filter(notInSet(action.ids)),
+        rooms: state.rooms.filter((r) => !action.ids.includes(r.propertyId)),
+      };
+
     case "ADD_ROOM":
       return { ...state, rooms: [action.payload, ...state.rooms] };
     case "UPDATE_ROOM":
@@ -41,12 +59,30 @@ function reducer(state, action) {
         rooms: state.rooms.filter((r) => r.id !== action.payload),
         ratePlans: state.ratePlans.filter((rp) => rp.roomId !== action.payload),
       };
+    case "BULK_UPDATE_ROOMS":
+      return { ...state, rooms: state.rooms.map((r) => (action.ids.includes(r.id) ? action.updater(r) : r)) };
+    case "BULK_ADD_ROOMS":
+      return { ...state, rooms: [...action.payload, ...state.rooms] };
+    case "BULK_DELETE_ROOMS":
+      return {
+        ...state,
+        rooms: state.rooms.filter(notInSet(action.ids)),
+        ratePlans: state.ratePlans.filter((rp) => !action.ids.includes(rp.roomId)),
+      };
+
     case "ADD_RATE_PLAN":
       return { ...state, ratePlans: [action.payload, ...state.ratePlans] };
     case "UPDATE_RATE_PLAN":
       return { ...state, ratePlans: state.ratePlans.map((rp) => (rp.id === action.payload.id ? action.payload : rp)) };
     case "DELETE_RATE_PLAN":
       return { ...state, ratePlans: state.ratePlans.filter((rp) => rp.id !== action.payload) };
+    case "BULK_UPDATE_RATE_PLANS":
+      return { ...state, ratePlans: state.ratePlans.map((rp) => (action.ids.includes(rp.id) ? action.updater(rp) : rp)) };
+    case "BULK_ADD_RATE_PLANS":
+      return { ...state, ratePlans: [...action.payload, ...state.ratePlans] };
+    case "BULK_DELETE_RATE_PLANS":
+      return { ...state, ratePlans: state.ratePlans.filter(notInSet(action.ids)) };
+
     default:
       return state;
   }
@@ -54,6 +90,12 @@ function reducer(state, action) {
 
 export function DataProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { user } = useAuth();
+
+  const stamp = useCallback(
+    (obj) => ({ ...obj, lastModifiedBy: user?.username || "System", lastModifiedAt: new Date().toISOString() }),
+    [user]
+  );
 
   const roomCountFor = useCallback((propertyId) => state.rooms.filter((r) => r.propertyId === propertyId).length, [state.rooms]);
   const ratePlanCountFor = useCallback(
@@ -69,37 +111,93 @@ export function DataProvider({ children }) {
       ...state,
       roomCountFor,
       ratePlanCountFor,
+
+      // Properties
       addProperty: (data) => {
-        const property = { ...data, id: nextId(state.properties, "PROP", 1000) };
+        const property = stamp({ ...data, id: nextId(state.properties, "PROP", 1000) });
         dispatch({ type: "ADD_PROPERTY", payload: property });
         return property;
       },
-      updateProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: property }),
-      deleteProperty: (id) => dispatch({ type: "DELETE_PROPERTY", payload: id }),
+      updateProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: stamp(property) }),
+      archiveProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: stamp({ ...property, status: "Archived" }) }),
+      deletePropertyPermanently: (id) => dispatch({ type: "DELETE_PROPERTY", payload: id }),
       duplicateProperty: (property) => {
-        const copy = { ...property, id: nextId(state.properties, "PROP", 1000), name: `${property.name} (Copy)` };
+        const copy = stamp({ ...property, id: nextId(state.properties, "PROP", 1000), name: `${property.name} (Copy)`, status: "Draft" });
         dispatch({ type: "ADD_PROPERTY", payload: copy });
         return copy;
       },
-      archiveProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: { ...property, status: "Archived" } }),
+      bulkArchiveProperties: (ids) => dispatch({ type: "BULK_UPDATE_PROPERTIES", ids, updater: (p) => stamp({ ...p, status: "Archived" }) }),
+      bulkChangeStatusProperties: (ids, status) => dispatch({ type: "BULK_UPDATE_PROPERTIES", ids, updater: (p) => stamp({ ...p, status }) }),
+      bulkDuplicateProperties: (ids) => {
+        const source = state.properties.filter(inSet(ids));
+        let cursor = state.properties;
+        const copies = source.map((p) => {
+          const copy = stamp({ ...p, id: nextId(cursor, "PROP", 1000), name: `${p.name} (Copy)`, status: "Draft" });
+          cursor = [copy, ...cursor];
+          return copy;
+        });
+        dispatch({ type: "BULK_ADD_PROPERTIES", payload: copies });
+        return copies;
+      },
+      bulkDeleteProperties: (ids) => dispatch({ type: "BULK_DELETE_PROPERTIES", ids }),
 
+      // Rooms
       addRoom: (data) => {
-        const room = { ...data, id: nextId(state.rooms, "RM", 2000) };
+        const room = stamp({ ...data, id: nextId(state.rooms, "RM", 2000) });
         dispatch({ type: "ADD_ROOM", payload: room });
         return room;
       },
-      updateRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: room }),
+      updateRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp(room) }),
       deleteRoom: (id) => dispatch({ type: "DELETE_ROOM", payload: id }),
+      duplicateRoom: (room) => {
+        const copy = stamp({ ...room, id: nextId(state.rooms, "RM", 2000), name: `${room.name} (Copy)` });
+        dispatch({ type: "ADD_ROOM", payload: copy });
+        return copy;
+      },
+      bulkArchiveRooms: (ids) => dispatch({ type: "BULK_UPDATE_ROOMS", ids, updater: (r) => stamp({ ...r, status: "Inactive" }) }),
+      bulkChangeStatusRooms: (ids, status) => dispatch({ type: "BULK_UPDATE_ROOMS", ids, updater: (r) => stamp({ ...r, status }) }),
+      bulkDuplicateRooms: (ids) => {
+        const source = state.rooms.filter(inSet(ids));
+        let cursor = state.rooms;
+        const copies = source.map((r) => {
+          const copy = stamp({ ...r, id: nextId(cursor, "RM", 2000), name: `${r.name} (Copy)` });
+          cursor = [copy, ...cursor];
+          return copy;
+        });
+        dispatch({ type: "BULK_ADD_ROOMS", payload: copies });
+        return copies;
+      },
+      bulkDeleteRooms: (ids) => dispatch({ type: "BULK_DELETE_ROOMS", ids }),
 
+      // Rate Plans
       addRatePlan: (data) => {
-        const ratePlan = { ...data, id: nextId(state.ratePlans, "RP", 3000) };
+        const ratePlan = stamp({ ...data, id: nextId(state.ratePlans, "RP", 3000) });
         dispatch({ type: "ADD_RATE_PLAN", payload: ratePlan });
         return ratePlan;
       },
-      updateRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: ratePlan }),
+      updateRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp(ratePlan) }),
       deleteRatePlan: (id) => dispatch({ type: "DELETE_RATE_PLAN", payload: id }),
+      duplicateRatePlan: (ratePlan) => {
+        const copy = stamp({ ...ratePlan, id: nextId(state.ratePlans, "RP", 3000), name: `${ratePlan.name} (Copy)` });
+        dispatch({ type: "ADD_RATE_PLAN", payload: copy });
+        return copy;
+      },
+      bulkArchiveRatePlans: (ids) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status: "Inactive" }) }),
+      bulkChangeStatusRatePlans: (ids, status) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status }) }),
+      bulkDuplicateRatePlans: (ids) => {
+        const source = state.ratePlans.filter(inSet(ids));
+        let cursor = state.ratePlans;
+        const copies = source.map((rp) => {
+          const copy = stamp({ ...rp, id: nextId(cursor, "RP", 3000), name: `${rp.name} (Copy)` });
+          cursor = [copy, ...cursor];
+          return copy;
+        });
+        dispatch({ type: "BULK_ADD_RATE_PLANS", payload: copies });
+        return copies;
+      },
+      bulkDeleteRatePlans: (ids) => dispatch({ type: "BULK_DELETE_RATE_PLANS", ids }),
     }),
-    [state, roomCountFor, ratePlanCountFor]
+    [state, roomCountFor, ratePlanCountFor, stamp]
   );
 
   return <DataContext.Provider value={api}>{children}</DataContext.Provider>;

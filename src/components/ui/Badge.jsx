@@ -2,6 +2,7 @@ import React from "react";
 
 const STATUS_VARIANT = {
   Active: "success",
+  Draft: "info",
   Inactive: "warning",
   Archived: "danger",
 };

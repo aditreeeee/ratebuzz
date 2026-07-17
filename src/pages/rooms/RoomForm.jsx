@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { Sparkles } from "lucide-react";
 import { Modal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { BED_TYPES, VIEWS, ROOM_STATUSES } from "../../mocks/rooms.js";
+import { ROOM_TEMPLATES } from "../../mocks/roomTemplates.js";
 
 const EMPTY = {
   name: "", description: "", occupancy: 2, maxAdults: 2, maxChildren: 0,
@@ -37,6 +39,23 @@ export function RoomForm({ open, onClose, onSubmit, initial }) {
         </>
       }
     >
+      {!initial && (
+        <div className="template-picker">
+          <div className="template-picker__label"><Sparkles size={13} strokeWidth={2} /> Quick-fill from a template</div>
+          <div className="template-picker__list">
+            {ROOM_TEMPLATES.map((t) => (
+              <button
+                type="button"
+                key={t.key}
+                className="template-picker__item"
+                onClick={() => setForm((f) => ({ ...f, ...t.values }))}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <form id="room-form" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-grid__full">
