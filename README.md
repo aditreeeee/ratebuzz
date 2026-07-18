@@ -6,8 +6,18 @@ in-browser via a service worker (Babel transform at request time).
 
 ## Run locally
 
-Double-click `start.bat` (bypasses PowerShell's script-signing restriction automatically),
-or run manually:
+**Windows PowerShell prerequisite:** if running `serve.ps1` directly gives a
+"not digitally signed" error, temporarily bypass the execution policy for the
+current terminal session:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+This only affects the current PowerShell session/process — nothing is
+changed system-wide.
+
+Double-click `start.bat` (does this automatically), or run manually:
 
 ```
 powershell -ExecutionPolicy Bypass -File serve.ps1
