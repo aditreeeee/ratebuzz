@@ -2,6 +2,7 @@ import React from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { DataProvider } from "./context/DataContext.jsx";
+import { PropertyContextProvider } from "./context/PropertyContext.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
 import { AuthGuard } from "./components/layout/AuthGuard.jsx";
 import { PortalLayout } from "./components/layout/PortalLayout.jsx";
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <AuthProvider>
       <DataProvider>
+        <PropertyContextProvider>
         <ToastProvider>
           <HashRouter>
             <Routes>
@@ -39,6 +41,7 @@ export default function App() {
             </Routes>
           </HashRouter>
         </ToastProvider>
+        </PropertyContextProvider>
       </DataProvider>
     </AuthProvider>
   );

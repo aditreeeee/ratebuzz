@@ -5,6 +5,7 @@ import { StatusBadge } from "../../components/ui/Badge.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { formatCurrency, formatDate } from "../../lib/format.js";
 import { useData } from "../../context/DataContext.jsx";
+import { mealPlanLabel } from "../../mocks/ratePlans.js";
 
 export function RatePlanDetailModal({ ratePlan, onClose, onEdit }) {
   const data = useData();
@@ -39,7 +40,10 @@ export function RatePlanDetailModal({ ratePlan, onClose, onEdit }) {
 
         <div className="detail-grid">
           <div className="detail-field"><span>Rate Plan ID</span><strong className="tabular">{ratePlan.id}</strong></div>
-          <div className="detail-field"><span>Meal Plan</span><strong>{ratePlan.mealPlan}</strong></div>
+          <div className="detail-field" title={mealPlanLabel(ratePlan.mealPlan)}>
+            <span>Meal Plan</span>
+            <strong>{ratePlan.mealPlan} &middot; {mealPlanLabel(ratePlan.mealPlan)}</strong>
+          </div>
           <div className="detail-field"><span>Cancellation Policy</span><strong>{ratePlan.cancellationPolicy}</strong></div>
           <div className="detail-field"><span>Base Price</span><strong className="tabular">{formatCurrency(ratePlan.basePrice, currency)}</strong></div>
           <div className="detail-field"><span>Weekend Price</span><strong className="tabular">{formatCurrency(ratePlan.weekendPrice, currency)}</strong></div>

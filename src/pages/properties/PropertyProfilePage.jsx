@@ -16,6 +16,7 @@ import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { formatDate, formatCurrency } from "../../lib/format.js";
 import { useData } from "../../context/DataContext.jsx";
+import { usePropertyContext } from "../../context/PropertyContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { PropertyForm } from "./PropertyForm.jsx";
 
@@ -35,12 +36,17 @@ export function PropertyProfilePage() {
   const navigate = useNavigate();
   const data = useData();
   const toast = useToast();
+  const { setSelectedPropertyIds } = usePropertyContext();
   const [active, setActive] = useState("overview");
   const [formOpen, setFormOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notes, setNotes] = useState("");
 
   const property = data.properties.find((p) => p.id === id);
+  const goToScoped = (path) => {
+    if (property) setSelectedPropertyIds([property.id]);
+    navigate(path);
+  };
   const rooms = useMemo(() => (property ? data.rooms.filter((r) => r.propertyId === property.id) : []), [data.rooms, property]);
   const roomIds = useMemo(() => new Set(rooms.map((r) => r.id)), [rooms]);
   const ratePlans = useMemo(() => data.ratePlans.filter((rp) => roomIds.has(rp.roomId)), [data.ratePlans, roomIds]);
@@ -177,7 +183,7 @@ export function PropertyProfilePage() {
         <Card padded={false}>
           <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ fontSize: 15, fontWeight: 800 }}>Rooms at {property.name}</h3>
-            <Button variant="secondary" size="sm" icon={Plus} onClick={() => navigate(`/portal/rooms?propertyId=${property.id}`)}>Manage Rooms</Button>
+            <Button variant="secondary" size="sm" icon={Plus} onClick={() => goToScoped("/portal/rooms")}>Manage Rooms</Button>
           </div>
           <div style={{ padding: 20 }}>
             {rooms.length === 0 ? (
@@ -185,7 +191,7 @@ export function PropertyProfilePage() {
             ) : (
               <div className="detail-linked-list">
                 {rooms.map((r) => (
-                  <div key={r.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/portal/rooms?propertyId=${property.id}`)}>
+                  <div key={r.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => goToScoped("/portal/rooms")}>
                     <span>{r.name} <span className="table__cell-muted">&middot; {r.bedType}</span></span>
                     <StatusBadge status={r.status} />
                   </div>
@@ -200,7 +206,7 @@ export function PropertyProfilePage() {
         <Card padded={false}>
           <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ fontSize: 15, fontWeight: 800 }}>Rate Plans at {property.name}</h3>
-            <Button variant="secondary" size="sm" icon={Plus} onClick={() => navigate(`/portal/rate-plans?propertyId=${property.id}`)}>Manage Rate Plans</Button>
+            <Button variant="secondary" size="sm" icon={Plus} onClick={() => goToScoped("/portal/rate-plans")}>Manage Rate Plans</Button>
           </div>
           <div style={{ padding: 20 }}>
             {ratePlans.length === 0 ? (
@@ -208,7 +214,7 @@ export function PropertyProfilePage() {
             ) : (
               <div className="detail-linked-list">
                 {ratePlans.map((rp) => (
-                  <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/portal/rate-plans?propertyId=${property.id}`)}>
+                  <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => goToScoped("/portal/rate-plans")}>
                     <span>{rp.name}</span>
                     <span className="tabular">{formatCurrency(rp.basePrice, property.currency)}</span>
                   </div>
