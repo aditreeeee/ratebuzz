@@ -74,6 +74,10 @@ export function RatePlansPage() {
 
   const roomLookup = (id) => data.rooms.find((r) => r.id === id);
   const propertyForRoom = (room) => data.properties.find((p) => p.id === room?.propertyId);
+  const roomOptions = useMemo(
+    () => data.rooms.map((r) => ({ id: r.id, label: `${r.name} — ${propertyForRoom(r)?.name || "Unknown Property"}` })),
+    [data.rooms, data.properties]
+  );
 
   const ratePlansInScope = useMemo(() => {
     return data.ratePlans.filter((rp) => {
@@ -148,7 +152,7 @@ export function RatePlansPage() {
       data.updateRatePlan({ ...editing, ...form });
       toast.success(`${form.name} updated.`);
     } else {
-      const created = data.addRatePlan({ ...form, roomId });
+      const created = data.addRatePlan(form);
       toast.success(`${created.name} created as ${created.id}.`);
     }
     setFormOpen(false);
@@ -266,7 +270,7 @@ export function RatePlansPage() {
               <Upload size={16} strokeWidth={2} /><span>Import</span>
             </button>
             <ExportMenu rows={exportRowsData} columns={exportColumns} filenameBase="rate-plans" selectedCount={selection.count} />
-            <Button variant="primary" size="md" icon={Plus} onClick={openCreate} disabled={!roomId} title={!roomId ? "Select a specific room first" : undefined}>Add Rate Plan</Button>
+            <Button variant="primary" size="md" icon={Plus} onClick={openCreate}>Add Rate Plan</Button>
           </div>
         </div>
 
@@ -294,7 +298,7 @@ export function RatePlansPage() {
                 icon={Tag}
                 title={archivedView ? "No archived rate plans" : "No rate plans found"}
                 message="Try adjusting your filters, or add a rate plan to a room."
-                action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate} disabled={!roomId}>Add Rate Plan</Button>}
+                action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate}>Add Rate Plan</Button>}
               />
             }
             renderRow={(rp) => {
@@ -346,6 +350,8 @@ export function RatePlansPage() {
         onSubmit={handleSubmit}
         initial={editing}
         roomLabel={selectedRoom?.name}
+        rooms={roomOptions}
+        scopeRoomId={roomId}
       />
 
       <RatePlanDetailModal ratePlan={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />

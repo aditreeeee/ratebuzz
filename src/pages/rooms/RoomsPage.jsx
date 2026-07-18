@@ -123,7 +123,7 @@ export function RoomsPage() {
       data.updateRoom({ ...editing, ...form });
       toast.success(`${form.name} updated.`);
     } else {
-      const created = data.addRoom({ ...form, propertyId });
+      const created = data.addRoom(form);
       toast.success(`${created.name} created as ${created.id}.`);
     }
     setFormOpen(false);
@@ -227,7 +227,7 @@ export function RoomsPage() {
               <Upload size={16} strokeWidth={2} /><span>Import</span>
             </button>
             <ExportMenu rows={exportRowsData} columns={exportColumns} filenameBase="rooms" selectedCount={selection.count} />
-            <Button variant="primary" size="md" icon={Plus} onClick={openCreate} disabled={!propertyId} title={!propertyId ? "Select a specific property first" : undefined}>Add Room</Button>
+            <Button variant="primary" size="md" icon={Plus} onClick={openCreate}>Add Room</Button>
           </div>
         </div>
 
@@ -256,7 +256,7 @@ export function RoomsPage() {
                 icon={BedDouble}
                 title={archivedView ? "No archived rooms" : "No rooms found"}
                 message="Try adjusting your filters, or add a new room to a property."
-                action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate} disabled={!propertyId}>Add Room</Button>}
+                action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate}>Add Room</Button>}
               />
             }
             renderRow={(r) => (
@@ -303,7 +303,14 @@ export function RoomsPage() {
         </div>
       </Card>
 
-      <RoomForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} />
+      <RoomForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSubmit={handleSubmit}
+        initial={editing}
+        properties={data.properties}
+        scopePropertyId={propertyId}
+      />
 
       <RoomDetailModal room={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
 

@@ -9,11 +9,12 @@ import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 
 const EMPTY = {
   name: "", description: "", occupancy: 2, maxAdults: 2, maxChildren: 0,
-  bedType: BED_TYPES[0], view: VIEWS[0], smoking: false, status: "Active",
+  bedType: BED_TYPES[0], view: VIEWS[0], smoking: false, status: "Active", propertyId: "",
 };
 
 function validate(form) {
   const errors = {};
+  if (!form.propertyId) errors.propertyId = "Property is required.";
   if (!form.name || !form.name.trim()) errors.name = "Room name is required.";
   for (const [key, label] of [
     ["occupancy", "Occupancy"],
@@ -32,17 +33,21 @@ function validate(form) {
   return errors;
 }
 
-export function RoomForm({ open, onClose, onSubmit, initial }) {
+export function RoomForm({ open, onClose, onSubmit, initial, properties = [], scopePropertyId }) {
   const [form, setForm] = useState(initial || EMPTY);
   const [errors, setErrors] = useState({});
   const baselineRef = useRef(EMPTY);
 
   useEffect(() => {
-    const baseline = initial || EMPTY;
+    const baseline = initial
+      ? { ...EMPTY, ...initial }
+      : { ...EMPTY, propertyId: scopePropertyId || "" };
     setForm(baseline);
     setErrors({});
     baselineRef.current = baseline;
-  }, [initial, open]);
+  }, [initial, open, scopePropertyId]);
+
+  const scopedProperty = properties.find((p) => p.id === form.propertyId);
 
   const isDirty = open && JSON.stringify(form) !== JSON.stringify(baselineRef.current);
   const { confirmOpen, requestAction, confirmDiscard, cancelDiscard } = useUnsavedChanges(isDirty);
@@ -94,6 +99,25 @@ export function RoomForm({ open, onClose, onSubmit, initial }) {
       )}
       <form id="room-form" onSubmit={handleSubmit}>
         <div className="form-grid">
+          <div className="form-grid__full">
+            <Field label="Property" required id="r-property" error={errors.propertyId}>
+              {scopePropertyId ? (
+                <Input value={scopedProperty?.name || scopePropertyId} disabled />
+              ) : (
+                <Select
+                  id="r-property"
+                  placeholder="Select a property"
+                  options={properties.map((p) => p.name)}
+                  value={scopedProperty?.name || ""}
+                  onChange={(e) => {
+                    const p = properties.find((pp) => pp.name === e.target.value);
+                    setForm((f) => ({ ...f, propertyId: p?.id || "" }));
+                  }}
+                  disabled={!!initial}
+                />
+              )}
+            </Field>
+          </div>
           <div className="form-grid__full">
             <Field label="Room Name" required id="r-name" error={errors.name}>
               <Input id="r-name" value={form.name} onChange={set("name")} required placeholder="e.g. Deluxe Ocean King" />

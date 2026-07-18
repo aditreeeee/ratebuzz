@@ -10,11 +10,12 @@ import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 const EMPTY = {
   name: "", mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0],
   basePrice: 0, weekendPrice: 0, extraAdultPrice: 0, childPrice: 0,
-  validFrom: "", validTo: "", status: "Active",
+  validFrom: "", validTo: "", status: "Active", roomId: "",
 };
 
 function validate(form) {
   const errors = {};
+  if (!form.roomId) errors.roomId = "Room is required.";
   if (!form.name || !form.name.trim()) errors.name = "Rate plan name is required.";
   for (const [key, label] of [
     ["basePrice", "Base price"],
@@ -34,17 +35,21 @@ function validate(form) {
   return errors;
 }
 
-export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel }) {
+export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, rooms = [], scopeRoomId }) {
   const [form, setForm] = useState(initial || EMPTY);
   const [errors, setErrors] = useState({});
   const baselineRef = useRef(EMPTY);
 
   useEffect(() => {
-    const baseline = initial || EMPTY;
+    const baseline = initial
+      ? { ...EMPTY, ...initial }
+      : { ...EMPTY, roomId: scopeRoomId || "" };
     setForm(baseline);
     setErrors({});
     baselineRef.current = baseline;
-  }, [initial, open]);
+  }, [initial, open, scopeRoomId]);
+
+  const scopedRoom = rooms.find((r) => r.id === form.roomId);
 
   const isDirty = open && JSON.stringify(form) !== JSON.stringify(baselineRef.current);
   const { confirmOpen, requestAction, confirmDiscard, cancelDiscard } = useUnsavedChanges(isDirty);
@@ -77,7 +82,7 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel }) {
         </>
       }
     >
-      {roomLabel && (
+      {scopeRoomId && roomLabel && (
         <div className="rp-form__room-context">
           Linked Room: <strong>{roomLabel}</strong>
         </div>
@@ -101,6 +106,23 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel }) {
       )}
       <form id="rp-form" onSubmit={handleSubmit}>
         <div className="form-grid">
+          {!scopeRoomId && (
+            <div className="form-grid__full">
+              <Field label="Room" required id="rp-room" error={errors.roomId}>
+                <Select
+                  id="rp-room"
+                  placeholder="Select a room"
+                  options={rooms.map((r) => r.label)}
+                  value={scopedRoom ? scopedRoom.label : ""}
+                  onChange={(e) => {
+                    const r = rooms.find((rr) => rr.label === e.target.value);
+                    setForm((f) => ({ ...f, roomId: r?.id || "" }));
+                  }}
+                  disabled={!!initial}
+                />
+              </Field>
+            </div>
+          )}
           <div className="form-grid__full">
             <Field label="Rate Plan Name" required id="rp-name" error={errors.name}>
               <Input id="rp-name" value={form.name} onChange={set("name")} required placeholder="e.g. Best Flexible Rate" />
