@@ -3,7 +3,7 @@ import { Sparkles } from "lucide-react";
 import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
-import { MEAL_PLANS, CANCELLATION_POLICIES, RATE_PLAN_STATUSES } from "../../mocks/ratePlans.js";
+import { MEAL_PLANS, CANCELLATION_POLICIES, RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
 import { RATE_PLAN_TEMPLATES } from "../../mocks/ratePlanTemplates.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 
@@ -128,8 +128,8 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
               <Input id="rp-name" value={form.name} onChange={set("name")} required placeholder="e.g. Best Flexible Rate" />
             </Field>
           </div>
-          <Field label="Meal Plan" required id="rp-meal">
-            <Select id="rp-meal" options={MEAL_PLANS} value={form.mealPlan} onChange={set("mealPlan")} />
+          <Field label="Meal Plan" required id="rp-meal" hint={mealPlanLabel(form.mealPlan)}>
+            <Select id="rp-meal" options={MEAL_PLANS} value={form.mealPlan} onChange={set("mealPlan")} title={mealPlanLabel(form.mealPlan)} />
           </Field>
           <Field label="Cancellation Policy" required id="rp-cancel">
             <Select id="rp-cancel" options={CANCELLATION_POLICIES} value={form.cancellationPolicy} onChange={set("cancellationPolicy")} />

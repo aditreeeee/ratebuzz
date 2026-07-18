@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Plus, BedDouble, Pencil, Copy, Trash2, Users, Cigarette, RotateCcw, Upload, Archive } from "lucide-react";
+import { Plus, BedDouble, Pencil, Copy, Trash2, Users, Cigarette, RotateCcw, Upload, Archive, Building2 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
@@ -18,6 +17,7 @@ import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
 import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
 import { ImportWizard } from "../../components/ui/ImportWizard.jsx";
 import { useData } from "../../context/DataContext.jsx";
+import { usePropertyContext } from "../../context/PropertyContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
@@ -48,8 +48,7 @@ export function RoomsPage() {
   const data = useData();
   const toast = useToast();
   const permissions = usePermissions();
-  const [searchParams] = useSearchParams();
-  const [propertyId, setPropertyId] = useState(searchParams.get("propertyId") || "");
+  const { selectedPropertyIds } = usePropertyContext();
   const [search, setSearch] = useState("");
   const [occupancyFilter, setOccupancyFilter] = useState("");
   const [bedTypeFilter, setBedTypeFilter] = useState("");
@@ -64,15 +63,20 @@ export function RoomsPage() {
   const [viewing, setViewing] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
+  const hasPropertySelection = selectedPropertyIds.length > 0;
   const roomsInScope = useMemo(
-    () => (propertyId ? data.rooms.filter((r) => r.propertyId === propertyId) : data.rooms),
-    [data.rooms, propertyId]
+    () => data.rooms.filter((r) => selectedPropertyIds.includes(r.propertyId)),
+    [data.rooms, selectedPropertyIds]
   );
   const roomsInView = useMemo(
     () => roomsInScope.filter((r) => (viewMode === "archived" ? r.status === "Archived" : r.status !== "Archived")),
     [roomsInScope, viewMode]
   );
-  const selectedProperty = data.properties.find((p) => p.id === propertyId);
+  const selectedProperties = useMemo(
+    () => data.properties.filter((p) => selectedPropertyIds.includes(p.id)),
+    [data.properties, selectedPropertyIds]
+  );
+  const selectedProperty = selectedProperties.length === 1 ? selectedProperties[0] : null;
   const propertyName = (id) => data.properties.find((p) => p.id === id)?.name || "—";
 
   const onSort = (key) => {
@@ -198,6 +202,16 @@ export function RoomsPage() {
       />
       <Topbar title="Rooms" subtitle="Rooms are managed within their parent property." />
 
+      {!hasPropertySelection ? (
+        <Card>
+          <EmptyState
+            icon={Building2}
+            title="Select a property to get started"
+            message="Select one or more properties from the property selector above to view their rooms."
+          />
+        </Card>
+      ) : (
+      <>
       <div className="page-section">
         <Tabs tabs={VIEW_TABS} active={viewMode} onChange={setViewMode} />
       </div>
@@ -205,17 +219,6 @@ export function RoomsPage() {
       <Card padded={false}>
         <div style={{ padding: "20px 20px 0" }}>
           <div className="page-toolbar">
-            <Select
-              options={data.properties.map((p) => p.name)}
-              placeholder="All Properties"
-              value={selectedProperty?.name || ""}
-              onChange={(e) => {
-                const p = data.properties.find((pp) => pp.name === e.target.value);
-                setPropertyId(p?.id || "");
-                setPage(1);
-              }}
-              style={{ maxWidth: 220, fontWeight: 700 }}
-            />
             <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search rooms..." />
             <Select options={["1", "2", "3", "4"]} placeholder="Occupancy" value={occupancyFilter} onChange={(e) => { setOccupancyFilter(e.target.value); setPage(1); }} style={{ maxWidth: 130 }} />
             <Select options={BED_TYPES} placeholder="Bed Type" value={bedTypeFilter} onChange={(e) => { setBedTypeFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
@@ -257,8 +260,8 @@ export function RoomsPage() {
             emptyState={
               <EmptyState
                 icon={BedDouble}
-                title={archivedView ? "No archived rooms" : "No rooms found"}
-                message="Try adjusting your filters, or add a new room to a property."
+                title={archivedView ? "No archived rooms" : "No Rooms Found"}
+                message={archivedView ? "Try adjusting your filters." : "This property has no rooms yet. Add one to get started."}
                 action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate}>Add Room</Button>}
               />
             }
@@ -307,14 +310,16 @@ export function RoomsPage() {
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
         </div>
       </Card>
+      </>
+      )}
 
       <RoomForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
         onSubmit={handleSubmit}
         initial={editing}
-        properties={data.properties}
-        scopePropertyId={propertyId}
+        properties={selectedProperties}
+        scopePropertyId={selectedProperty?.id || ""}
       />
 
       <RoomDetailModal room={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />

@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw, Archive, Upload } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw, Archive, Upload, Building2 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
@@ -18,11 +17,12 @@ import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
 import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
 import { ImportWizard } from "../../components/ui/ImportWizard.jsx";
 import { useData } from "../../context/DataContext.jsx";
+import { usePropertyContext } from "../../context/PropertyContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePaginatedSortedFiltered, formatCurrency, formatDate } from "../../lib/format.js";
-import { MEAL_PLANS, RATE_PLAN_STATUSES } from "../../mocks/ratePlans.js";
+import { MEAL_PLANS, RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 import { RatePlanDetailModal } from "./RatePlanDetailModal.jsx";
 
@@ -49,9 +49,8 @@ export function RatePlansPage() {
   const data = useData();
   const toast = useToast();
   const permissions = usePermissions();
-  const [searchParams] = useSearchParams();
-  const [propertyId, setPropertyId] = useState(searchParams.get("propertyId") || "");
-  const [roomId, setRoomId] = useState(searchParams.get("roomId") || "");
+  const { selectedPropertyIds } = usePropertyContext();
+  const [roomId, setRoomId] = useState("");
   const [search, setSearch] = useState("");
   const [mealPlanFilter, setMealPlanFilter] = useState("");
   const [viewMode, setViewMode] = useState("active");
@@ -67,30 +66,42 @@ export function RatePlansPage() {
   const [viewing, setViewing] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
+  const hasPropertySelection = selectedPropertyIds.length > 0;
+  const selectedProperties = useMemo(
+    () => data.properties.filter((p) => selectedPropertyIds.includes(p.id)),
+    [data.properties, selectedPropertyIds]
+  );
+  const selectedProperty = selectedProperties.length === 1 ? selectedProperties[0] : null;
+
   const roomsForProperty = useMemo(
-    () => (propertyId ? data.rooms.filter((r) => r.propertyId === propertyId) : data.rooms),
-    [data.rooms, propertyId]
+    () => data.rooms.filter((r) => selectedPropertyIds.includes(r.propertyId)),
+    [data.rooms, selectedPropertyIds]
   );
   const selectedRoom = data.rooms.find((r) => r.id === roomId);
-  const selectedProperty = data.properties.find((p) => p.id === propertyId);
 
   const roomLookup = (id) => data.rooms.find((r) => r.id === id);
   const propertyForRoom = (room) => data.properties.find((p) => p.id === room?.propertyId);
   const roomOptions = useMemo(
-    () => data.rooms.map((r) => ({ id: r.id, label: `${r.name} — ${propertyForRoom(r)?.name || "Unknown Property"}` })),
-    [data.rooms, data.properties]
+    () => roomsForProperty.map((r) => ({ id: r.id, label: `${r.name} — ${propertyForRoom(r)?.name || "Unknown Property"}` })),
+    [roomsForProperty, data.properties]
   );
+
+  // Reset the room filter if it falls outside the current property selection.
+  useEffect(() => {
+    if (roomId && !roomsForProperty.some((r) => r.id === roomId)) setRoomId("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyIds]);
 
   const ratePlansInScope = useMemo(() => {
     return data.ratePlans.filter((rp) => {
       const room = roomLookup(rp.roomId);
       if (!room) return false;
+      if (!selectedPropertyIds.includes(room.propertyId)) return false;
       if (roomId) return rp.roomId === roomId;
-      if (propertyId) return room.propertyId === propertyId;
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.ratePlans, data.rooms, roomId, propertyId]);
+  }, [data.ratePlans, data.rooms, roomId, selectedPropertyIds]);
 
   const ratePlansInView = useMemo(
     () => ratePlansInScope.filter((rp) => (viewMode === "archived" ? rp.status === "Archived" : rp.status !== "Archived")),
@@ -209,7 +220,7 @@ export function RatePlansPage() {
     { label: "Name", value: (rp) => rp.name },
     { label: "Room", value: (rp) => roomLookup(rp.roomId)?.name || "" },
     { label: "Property", value: (rp) => propertyForRoom(roomLookup(rp.roomId))?.name || "" },
-    { label: "Meal Plan", value: (rp) => rp.mealPlan },
+    { label: "Meal Plan", value: (rp) => `${rp.mealPlan} (${mealPlanLabel(rp.mealPlan)})` },
     { label: "Base Price", value: (rp) => rp.basePrice },
     { label: "Valid From", value: (rp) => formatDate(rp.validFrom) },
     { label: "Valid To", value: (rp) => formatDate(rp.validTo) },
@@ -228,6 +239,16 @@ export function RatePlansPage() {
       />
       <Topbar title="Rate Plans" subtitle="Rate plans always live under Property → Room." />
 
+      {!hasPropertySelection ? (
+        <Card>
+          <EmptyState
+            icon={Building2}
+            title="Select a property to get started"
+            message="Select one or more properties from the property selector above to view their rate plans."
+          />
+        </Card>
+      ) : (
+      <>
       <div className="page-section">
         <Tabs tabs={VIEW_TABS} active={viewMode} onChange={setViewMode} />
       </div>
@@ -235,18 +256,6 @@ export function RatePlansPage() {
       <Card padded={false}>
         <div style={{ padding: "20px 20px 0" }}>
           <div className="page-toolbar">
-            <Select
-              options={data.properties.map((p) => p.name)}
-              placeholder="All Properties"
-              value={selectedProperty?.name || ""}
-              onChange={(e) => {
-                const p = data.properties.find((pp) => pp.name === e.target.value);
-                setPropertyId(p?.id || "");
-                setRoomId("");
-                setPage(1);
-              }}
-              style={{ maxWidth: 200, fontWeight: 700 }}
-            />
             <Select
               options={roomsForProperty.map((r) => r.name)}
               placeholder="All Rooms"
@@ -299,8 +308,8 @@ export function RatePlansPage() {
             emptyState={
               <EmptyState
                 icon={Tag}
-                title={archivedView ? "No archived rate plans" : "No rate plans found"}
-                message="Try adjusting your filters, or add a rate plan to a room."
+                title={archivedView ? "No archived rate plans" : "No Rate Plans Found"}
+                message={archivedView ? "Try adjusting your filters." : "This selection has no rate plans yet. Add one to get started."}
                 action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate}>Add Rate Plan</Button>}
               />
             }
@@ -319,7 +328,7 @@ export function RatePlansPage() {
                   </td>
                   <td className="table__cell-muted">{room?.name || "—"}</td>
                   <td className="table__cell-muted">{property?.name || "—"}</td>
-                  <td>{rp.mealPlan}</td>
+                  <td title={mealPlanLabel(rp.mealPlan)}>{rp.mealPlan}</td>
                   <td className="tabular">{formatCurrency(rp.basePrice, property?.currency || "USD")}</td>
                   <td className="tabular">{formatDate(rp.validTo)}</td>
                   <td><StatusBadge status={rp.status} /></td>
@@ -348,6 +357,8 @@ export function RatePlansPage() {
           <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
         </div>
       </Card>
+      </>
+      )}
 
       <RatePlanForm
         open={formOpen}

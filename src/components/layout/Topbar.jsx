@@ -1,6 +1,7 @@
 import React from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { GlobalSearch } from "../GlobalSearch.jsx";
+import { PropertySelector } from "../ui/PropertySelector.jsx";
 
 export function Topbar({ title, subtitle, hideSearch = false }) {
   const { user, accounts, loginAsAccount } = useAuth();
@@ -12,6 +13,7 @@ export function Topbar({ title, subtitle, hideSearch = false }) {
         {subtitle && <p className="topbar__subtitle">{subtitle}</p>}
       </div>
       <div className="topbar__right">
+        <PropertySelector />
         {!hideSearch && <GlobalSearch />}
 
         {/* Dev-only mock account switcher: stands in for real multi-account
