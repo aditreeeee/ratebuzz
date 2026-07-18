@@ -3,6 +3,7 @@ import { Plus, BedDouble, Pencil, Copy, Trash2, Users, Cigarette, RotateCcw } fr
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
+import { Pagination } from "../../components/ui/Pagination.jsx";
 import { SearchBar } from "../../components/ui/SearchBar.jsx";
 import { Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
@@ -18,6 +19,8 @@ import { usePaginatedSortedFiltered } from "../../lib/format.js";
 import { BED_TYPES, ROOM_STATUSES } from "../../mocks/rooms.js";
 import { RoomForm } from "./RoomForm.jsx";
 import { RoomDetailModal } from "./RoomDetailModal.jsx";
+
+const PAGE_SIZE = 10;
 
 const BASE_COLUMNS = [
   { key: "id", label: "Room ID", sortable: true, width: 110 },
@@ -40,6 +43,7 @@ export function RoomsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -61,9 +65,10 @@ export function RoomsPage() {
   const filtersActive = search || occupancyFilter || bedTypeFilter || statusFilter;
   const resetFilters = () => {
     setSearch(""); setOccupancyFilter(""); setBedTypeFilter(""); setStatusFilter("");
+    setPage(1);
   };
 
-  const { pageData } = useMemo(
+  const { pageData, total } = useMemo(
     () =>
       usePaginatedSortedFiltered({
         data: roomsInScope,
@@ -76,10 +81,10 @@ export function RoomsPage() {
         },
         sortKey,
         sortDir,
-        page: 1,
-        pageSize: 1000,
+        page,
+        pageSize: PAGE_SIZE,
       }),
-    [roomsInScope, search, occupancyFilter, bedTypeFilter, statusFilter, sortKey, sortDir]
+    [roomsInScope, search, occupancyFilter, bedTypeFilter, statusFilter, sortKey, sortDir, page]
   );
 
   const visibleIds = pageData.map((r) => r.id);
@@ -156,13 +161,14 @@ export function RoomsPage() {
               onChange={(e) => {
                 const p = data.properties.find((pp) => pp.name === e.target.value);
                 setPropertyId(p?.id || "");
+                setPage(1);
               }}
               style={{ maxWidth: 220, fontWeight: 700 }}
             />
-            <SearchBar value={search} onChange={setSearch} placeholder="Search rooms..." />
-            <Select options={["1", "2", "3", "4"]} placeholder="Occupancy" value={occupancyFilter} onChange={(e) => setOccupancyFilter(e.target.value)} style={{ maxWidth: 130 }} />
-            <Select options={BED_TYPES} placeholder="Bed Type" value={bedTypeFilter} onChange={(e) => setBedTypeFilter(e.target.value)} style={{ maxWidth: 140 }} />
-            <Select options={ROOM_STATUSES} placeholder="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 130 }} />
+            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search rooms..." />
+            <Select options={["1", "2", "3", "4"]} placeholder="Occupancy" value={occupancyFilter} onChange={(e) => { setOccupancyFilter(e.target.value); setPage(1); }} style={{ maxWidth: 130 }} />
+            <Select options={BED_TYPES} placeholder="Bed Type" value={bedTypeFilter} onChange={(e) => { setBedTypeFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
+            <Select options={ROOM_STATUSES} placeholder="Status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} style={{ maxWidth: 130 }} />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
                 <RotateCcw size={13} strokeWidth={2} /> Reset
@@ -230,6 +236,7 @@ export function RoomsPage() {
               </tr>
             )}
           />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
         </div>
       </Card>
 

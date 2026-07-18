@@ -3,6 +3,7 @@ import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
+import { Pagination } from "../../components/ui/Pagination.jsx";
 import { SearchBar } from "../../components/ui/SearchBar.jsx";
 import { Select, Input } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
@@ -18,6 +19,8 @@ import { usePaginatedSortedFiltered, formatCurrency, formatDate } from "../../li
 import { MEAL_PLANS, RATE_PLAN_STATUSES } from "../../mocks/ratePlans.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 import { RatePlanDetailModal } from "./RatePlanDetailModal.jsx";
+
+const PAGE_SIZE = 10;
 
 const BASE_COLUMNS = [
   { key: "id", label: "Rate Plan ID", sortable: true, width: 120 },
@@ -43,6 +46,7 @@ export function RatePlansPage() {
   const [dateTo, setDateTo] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -88,9 +92,10 @@ export function RatePlansPage() {
   const filtersActive = search || mealPlanFilter || statusFilter || dateFrom || dateTo;
   const resetFilters = () => {
     setSearch(""); setMealPlanFilter(""); setStatusFilter(""); setDateFrom(""); setDateTo("");
+    setPage(1);
   };
 
-  const { pageData } = useMemo(
+  const { pageData, total } = useMemo(
     () =>
       usePaginatedSortedFiltered({
         data: dateFiltered,
@@ -99,10 +104,10 @@ export function RatePlansPage() {
         filters: { mealPlan: mealPlanFilter, status: statusFilter },
         sortKey,
         sortDir,
-        page: 1,
-        pageSize: 1000,
+        page,
+        pageSize: PAGE_SIZE,
       }),
-    [dateFiltered, search, mealPlanFilter, statusFilter, sortKey, sortDir]
+    [dateFiltered, search, mealPlanFilter, statusFilter, sortKey, sortDir, page]
   );
 
   const visibleIds = pageData.map((rp) => rp.id);
@@ -180,6 +185,7 @@ export function RatePlansPage() {
                 const p = data.properties.find((pp) => pp.name === e.target.value);
                 setPropertyId(p?.id || "");
                 setRoomId("");
+                setPage(1);
               }}
               style={{ maxWidth: 200, fontWeight: 700 }}
             />
@@ -190,14 +196,15 @@ export function RatePlansPage() {
               onChange={(e) => {
                 const r = roomsForProperty.find((rr) => rr.name === e.target.value);
                 setRoomId(r?.id || "");
+                setPage(1);
               }}
               style={{ maxWidth: 180 }}
             />
-            <SearchBar value={search} onChange={setSearch} placeholder="Search rate plans..." />
-            <Select options={MEAL_PLANS} placeholder="Meal Plan" value={mealPlanFilter} onChange={(e) => setMealPlanFilter(e.target.value)} style={{ maxWidth: 150 }} />
-            <Select options={RATE_PLAN_STATUSES} placeholder="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 120 }} />
-            <Input type="date" tabular value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ maxWidth: 150 }} title="Valid from" />
-            <Input type="date" tabular value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ maxWidth: 150 }} title="Valid to" />
+            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search rate plans..." />
+            <Select options={MEAL_PLANS} placeholder="Meal Plan" value={mealPlanFilter} onChange={(e) => { setMealPlanFilter(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} />
+            <Select options={RATE_PLAN_STATUSES} placeholder="Status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} style={{ maxWidth: 120 }} />
+            <Input type="date" tabular value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} title="Valid from" />
+            <Input type="date" tabular value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} title="Valid to" />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
                 <RotateCcw size={13} strokeWidth={2} /> Reset
@@ -263,6 +270,7 @@ export function RatePlansPage() {
               );
             }}
           />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
         </div>
       </Card>
 
