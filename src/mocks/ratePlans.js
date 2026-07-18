@@ -1,6 +1,6 @@
 export const MEAL_PLANS = ["Room Only", "Breakfast Included", "Half Board", "Full Board", "All Inclusive"];
 export const CANCELLATION_POLICIES = ["Free Cancellation (24h)", "Free Cancellation (72h)", "Non-Refundable", "Partial Refund"];
-export const RATE_PLAN_STATUSES = ["Active", "Inactive"];
+export const RATE_PLAN_STATUSES = ["Active", "Inactive", "Archived"];
 
 export let RATE_PLANS = [
   { id: "RP-3001", roomId: "RM-2001", name: "Best Flexible Rate", mealPlan: "Breakfast Included", cancellationPolicy: "Free Cancellation (24h)", basePrice: 320, weekendPrice: 380, extraAdultPrice: 45, childPrice: 20, validFrom: "2026-01-01", validTo: "2026-12-31", status: "Active" },

@@ -1,8 +1,10 @@
 import React from "react";
-import { Archive, Copy, Trash2, X, RefreshCcw } from "lucide-react";
+import { Archive, Copy, Trash2, X, RefreshCcw, RotateCcw } from "lucide-react";
 import { Select } from "./Input.jsx";
 
-export function BulkActionBar({ count, onClear, onArchive, onDuplicate, onDelete, statusOptions, onChangeStatus }) {
+export function BulkActionBar({
+  count, onClear, onArchive, onRestore, onDuplicate, onDelete, statusOptions, onChangeStatus, archived = false,
+}) {
   if (!count) return null;
   return (
     <div className="bulk-bar" role="toolbar" aria-label="Bulk actions">
@@ -11,7 +13,7 @@ export function BulkActionBar({ count, onClear, onArchive, onDuplicate, onDelete
       </div>
       <div className="bulk-bar__divider" />
       <div className="bulk-bar__actions">
-        {statusOptions && (
+        {statusOptions && !archived && (
           <div className="bulk-bar__select">
             <RefreshCcw size={14} strokeWidth={2} />
             <Select
@@ -25,11 +27,17 @@ export function BulkActionBar({ count, onClear, onArchive, onDuplicate, onDelete
         <button className="bulk-bar__btn" onClick={onDuplicate}>
           <Copy size={14} strokeWidth={2} /> Duplicate
         </button>
-        <button className="bulk-bar__btn" onClick={onArchive}>
-          <Archive size={14} strokeWidth={2} /> Archive
-        </button>
+        {archived ? (
+          <button className="bulk-bar__btn" onClick={onRestore}>
+            <RotateCcw size={14} strokeWidth={2} /> Restore
+          </button>
+        ) : (
+          <button className="bulk-bar__btn" onClick={onArchive}>
+            <Archive size={14} strokeWidth={2} /> Archive
+          </button>
+        )}
         <button className="bulk-bar__btn bulk-bar__btn--danger" onClick={onDelete}>
-          <Trash2 size={14} strokeWidth={2} /> Delete
+          <Trash2 size={14} strokeWidth={2} /> {archived ? "Delete Permanently" : "Delete"}
         </button>
       </div>
       <button className="bulk-bar__clear" onClick={onClear} aria-label="Clear selection">

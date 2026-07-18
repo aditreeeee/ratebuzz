@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { SlidersHorizontal, LayoutList, PlugZap, Palette } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Tabs } from "../../components/ui/Tabs.jsx";
+import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
 import { INTEGRATION_DEFINITIONS } from "../../mocks/integrations.js";
 import { IntegrationCard } from "./IntegrationCard.jsx";
 import { GeneralSettings } from "./GeneralSettings.jsx";
@@ -20,6 +21,7 @@ export function SettingsPage() {
 
   return (
     <div>
+      <Breadcrumbs items={[{ label: "Settings" }]} />
       <Topbar title="Settings" subtitle="Configure platform defaults and future integrations." />
 
       <div className="page-section">

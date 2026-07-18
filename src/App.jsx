@@ -7,6 +7,7 @@ import { AuthGuard } from "./components/layout/AuthGuard.jsx";
 import { PortalLayout } from "./components/layout/PortalLayout.jsx";
 import { Login } from "./pages/Login.jsx";
 import { PropertiesPage } from "./pages/properties/PropertiesPage.jsx";
+import { PropertyProfilePage } from "./pages/properties/PropertyProfilePage.jsx";
 import { RoomsPage } from "./pages/rooms/RoomsPage.jsx";
 import { RatePlansPage } from "./pages/ratePlans/RatePlansPage.jsx";
 import { SettingsPage } from "./pages/settings/SettingsPage.jsx";
@@ -29,6 +30,7 @@ export default function App() {
               >
                 <Route index element={<Navigate to="properties" replace />} />
                 <Route path="properties" element={<PropertiesPage />} />
+                <Route path="properties/:id" element={<PropertyProfilePage />} />
                 <Route path="rooms" element={<RoomsPage />} />
                 <Route path="rate-plans" element={<RatePlansPage />} />
                 <Route path="settings" element={<SettingsPage />} />

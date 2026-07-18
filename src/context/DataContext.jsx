@@ -120,6 +120,7 @@ export function DataProvider({ children }) {
       },
       updateProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: stamp(property) }),
       archiveProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: stamp({ ...property, status: "Archived" }) }),
+      restoreProperty: (property) => dispatch({ type: "UPDATE_PROPERTY", payload: stamp({ ...property, status: "Active" }) }),
       deletePropertyPermanently: (id) => dispatch({ type: "DELETE_PROPERTY", payload: id }),
       duplicateProperty: (property) => {
         const copy = stamp({ ...property, id: nextId(state.properties, "PROP", 1000), name: `${property.name} (Copy)`, status: "Draft" });
@@ -140,6 +141,7 @@ export function DataProvider({ children }) {
         return copies;
       },
       bulkDeleteProperties: (ids) => dispatch({ type: "BULK_DELETE_PROPERTIES", ids }),
+      bulkRestoreProperties: (ids) => dispatch({ type: "BULK_UPDATE_PROPERTIES", ids, updater: (p) => stamp({ ...p, status: "Active" }) }),
 
       // Rooms
       addRoom: (data) => {
@@ -148,13 +150,17 @@ export function DataProvider({ children }) {
         return room;
       },
       updateRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp(room) }),
+      archiveRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp({ ...room, status: "Archived" }) }),
+      restoreRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp({ ...room, status: "Active" }) }),
       deleteRoom: (id) => dispatch({ type: "DELETE_ROOM", payload: id }),
+      deleteRoomPermanently: (id) => dispatch({ type: "DELETE_ROOM", payload: id }),
       duplicateRoom: (room) => {
         const copy = stamp({ ...room, id: nextId(state.rooms, "RM", 2000), name: `${room.name} (Copy)` });
         dispatch({ type: "ADD_ROOM", payload: copy });
         return copy;
       },
-      bulkArchiveRooms: (ids) => dispatch({ type: "BULK_UPDATE_ROOMS", ids, updater: (r) => stamp({ ...r, status: "Inactive" }) }),
+      bulkArchiveRooms: (ids) => dispatch({ type: "BULK_UPDATE_ROOMS", ids, updater: (r) => stamp({ ...r, status: "Archived" }) }),
+      bulkRestoreRooms: (ids) => dispatch({ type: "BULK_UPDATE_ROOMS", ids, updater: (r) => stamp({ ...r, status: "Active" }) }),
       bulkChangeStatusRooms: (ids, status) => dispatch({ type: "BULK_UPDATE_ROOMS", ids, updater: (r) => stamp({ ...r, status }) }),
       bulkDuplicateRooms: (ids) => {
         const source = state.rooms.filter(inSet(ids));
@@ -176,13 +182,17 @@ export function DataProvider({ children }) {
         return ratePlan;
       },
       updateRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp(ratePlan) }),
+      archiveRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp({ ...ratePlan, status: "Archived" }) }),
+      restoreRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp({ ...ratePlan, status: "Active" }) }),
       deleteRatePlan: (id) => dispatch({ type: "DELETE_RATE_PLAN", payload: id }),
+      deleteRatePlanPermanently: (id) => dispatch({ type: "DELETE_RATE_PLAN", payload: id }),
       duplicateRatePlan: (ratePlan) => {
         const copy = stamp({ ...ratePlan, id: nextId(state.ratePlans, "RP", 3000), name: `${ratePlan.name} (Copy)` });
         dispatch({ type: "ADD_RATE_PLAN", payload: copy });
         return copy;
       },
-      bulkArchiveRatePlans: (ids) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status: "Inactive" }) }),
+      bulkArchiveRatePlans: (ids) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status: "Archived" }) }),
+      bulkRestoreRatePlans: (ids) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status: "Active" }) }),
       bulkChangeStatusRatePlans: (ids, status) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status }) }),
       bulkDuplicateRatePlans: (ids) => {
         const source = state.ratePlans.filter(inSet(ids));

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Sparkles } from "lucide-react";
-import { Modal } from "../../components/ui/Modal.jsx";
+import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { BED_TYPES, VIEWS, ROOM_STATUSES } from "../../mocks/rooms.js";
 import { ROOM_TEMPLATES } from "../../mocks/roomTemplates.js";
+import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 
 const EMPTY = {
   name: "", description: "", occupancy: 2, maxAdults: 2, maxChildren: 0,
@@ -13,8 +14,17 @@ const EMPTY = {
 
 export function RoomForm({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(initial || EMPTY);
+  const baselineRef = useRef(EMPTY);
 
-  useEffect(() => { setForm(initial || EMPTY); }, [initial, open]);
+  useEffect(() => {
+    const baseline = initial || EMPTY;
+    setForm(baseline);
+    baselineRef.current = baseline;
+  }, [initial, open]);
+
+  const isDirty = open && JSON.stringify(form) !== JSON.stringify(baselineRef.current);
+  const { confirmOpen, requestAction, confirmDiscard, cancelDiscard } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestAction(onClose);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const setNum = (key) => (e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }));
@@ -25,14 +35,15 @@ export function RoomForm({ open, onClose, onSubmit, initial }) {
   };
 
   return (
+    <>
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={guardedClose}
       title={initial ? "Edit Room" : "Add Room"}
       size="lg"
       footer={
         <>
-          <button className="btn btn--ghost btn--md" onClick={onClose} type="button">Cancel</button>
+          <button className="btn btn--ghost btn--md" onClick={guardedClose} type="button">Cancel</button>
           <Button variant="primary" size="md" type="submit" form="room-form">
             {initial ? "Save Changes" : "Create Room"}
           </Button>
@@ -97,5 +108,15 @@ export function RoomForm({ open, onClose, onSubmit, initial }) {
         </div>
       </form>
     </Modal>
+    <ConfirmModal
+      open={confirmOpen}
+      onClose={cancelDiscard}
+      onConfirm={confirmDiscard}
+      title="Unsaved Changes"
+      message="You have unsaved changes. Discard them and continue?"
+      confirmLabel="Discard Changes"
+      danger
+    />
+    </>
   );
 }

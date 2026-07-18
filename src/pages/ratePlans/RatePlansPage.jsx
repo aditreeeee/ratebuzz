@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw, Archive, Upload } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
@@ -11,6 +12,10 @@ import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Checkbox } from "../../components/ui/Checkbox.jsx";
 import { BulkActionBar } from "../../components/ui/BulkActionBar.jsx";
+import { Tabs } from "../../components/ui/Tabs.jsx";
+import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
+import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
+import { ImportWizard } from "../../components/ui/ImportWizard.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
@@ -28,17 +33,23 @@ const BASE_COLUMNS = [
   { key: "basePrice", label: "Base Price", sortable: true, width: 110 },
   { key: "validTo", label: "Valid Through", sortable: true, width: 130 },
   { key: "status", label: "Status", sortable: true, width: 100 },
-  { key: "actions", label: "", sortable: false, width: 140 },
+  { key: "actions", label: "", sortable: false, width: 150 },
+];
+
+const VIEW_TABS = [
+  { key: "active", label: "Active" },
+  { key: "archived", label: "Archived" },
 ];
 
 export function RatePlansPage() {
   const data = useData();
   const toast = useToast();
-  const [propertyId, setPropertyId] = useState("");
-  const [roomId, setRoomId] = useState("");
+  const [searchParams] = useSearchParams();
+  const [propertyId, setPropertyId] = useState(searchParams.get("propertyId") || "");
+  const [roomId, setRoomId] = useState(searchParams.get("roomId") || "");
   const [search, setSearch] = useState("");
   const [mealPlanFilter, setMealPlanFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [viewMode, setViewMode] = useState("active");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sortKey, setSortKey] = useState("name");
@@ -48,6 +59,7 @@ export function RatePlansPage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [viewing, setViewing] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const roomsForProperty = useMemo(
     () => (propertyId ? data.rooms.filter((r) => r.propertyId === propertyId) : data.rooms),
@@ -70,14 +82,19 @@ export function RatePlansPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.ratePlans, data.rooms, roomId, propertyId]);
 
+  const ratePlansInView = useMemo(
+    () => ratePlansInScope.filter((rp) => (viewMode === "archived" ? rp.status === "Archived" : rp.status !== "Archived")),
+    [ratePlansInScope, viewMode]
+  );
+
   const dateFiltered = useMemo(
     () =>
-      ratePlansInScope.filter((rp) => {
+      ratePlansInView.filter((rp) => {
         if (dateFrom && rp.validFrom < dateFrom) return false;
         if (dateTo && rp.validTo > dateTo) return false;
         return true;
       }),
-    [ratePlansInScope, dateFrom, dateTo]
+    [ratePlansInView, dateFrom, dateTo]
   );
 
   const onSort = (key) => {
@@ -85,9 +102,9 @@ export function RatePlansPage() {
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const filtersActive = search || mealPlanFilter || statusFilter || dateFrom || dateTo;
+  const filtersActive = search || mealPlanFilter || dateFrom || dateTo;
   const resetFilters = () => {
-    setSearch(""); setMealPlanFilter(""); setStatusFilter(""); setDateFrom(""); setDateTo("");
+    setSearch(""); setMealPlanFilter(""); setDateFrom(""); setDateTo("");
   };
 
   const { pageData } = useMemo(
@@ -96,13 +113,13 @@ export function RatePlansPage() {
         data: dateFiltered,
         search,
         searchFields: ["id", "name", "mealPlan"],
-        filters: { mealPlan: mealPlanFilter, status: statusFilter },
+        filters: { mealPlan: mealPlanFilter },
         sortKey,
         sortDir,
         page: 1,
         pageSize: 1000,
       }),
-    [dateFiltered, search, mealPlanFilter, statusFilter, sortKey, sortDir]
+    [dateFiltered, search, mealPlanFilter, sortKey, sortDir]
   );
 
   const visibleIds = pageData.map((rp) => rp.id);
@@ -137,15 +154,23 @@ export function RatePlansPage() {
     toast.info(`Duplicated as ${copy.id}.`);
   };
 
+  const handleArchive = (rp) => { data.archiveRatePlan(rp); toast.info(`${rp.name} archived.`); };
+  const handleRestore = (rp) => { data.restoreRatePlan(rp); toast.success(`${rp.name} restored.`); };
+
   const handleDelete = () => {
-    data.deleteRatePlan(confirmDelete.id);
-    toast.success(`${confirmDelete.name} deleted.`);
+    data.deleteRatePlanPermanently(confirmDelete.id);
+    toast.success(`${confirmDelete.name} permanently deleted.`);
     setConfirmDelete(null);
   };
 
   const handleBulkArchive = () => {
     data.bulkArchiveRatePlans(selection.selected);
-    toast.info(`${selection.count} rate plan(s) set to Inactive.`);
+    toast.info(`${selection.count} rate plan(s) archived.`);
+    selection.clear();
+  };
+  const handleBulkRestore = () => {
+    data.bulkRestoreRatePlans(selection.selected);
+    toast.success(`${selection.count} rate plan(s) restored.`);
     selection.clear();
   };
   const handleBulkDuplicate = () => {
@@ -155,7 +180,7 @@ export function RatePlansPage() {
   };
   const handleBulkDelete = () => {
     data.bulkDeleteRatePlans(selection.selected);
-    toast.success(`${selection.count} rate plan(s) deleted.`);
+    toast.success(`${selection.count} rate plan(s) permanently deleted.`);
     selection.clear();
     setConfirmBulkDelete(false);
   };
@@ -165,9 +190,36 @@ export function RatePlansPage() {
     selection.clear();
   };
 
+  const archivedView = viewMode === "archived";
+  const changeStatusOptions = RATE_PLAN_STATUSES.filter((s) => s !== "Archived");
+
+  const exportColumns = [
+    { label: "Rate Plan ID", value: (rp) => rp.id },
+    { label: "Name", value: (rp) => rp.name },
+    { label: "Room", value: (rp) => roomLookup(rp.roomId)?.name || "" },
+    { label: "Property", value: (rp) => propertyForRoom(roomLookup(rp.roomId))?.name || "" },
+    { label: "Meal Plan", value: (rp) => rp.mealPlan },
+    { label: "Base Price", value: (rp) => rp.basePrice },
+    { label: "Valid From", value: (rp) => formatDate(rp.validFrom) },
+    { label: "Valid To", value: (rp) => formatDate(rp.validTo) },
+    { label: "Status", value: (rp) => rp.status },
+  ];
+  const exportRowsData = selection.count ? ratePlansInView.filter((rp) => selection.selected.includes(rp.id)) : pageData;
+
   return (
     <div>
+      <Breadcrumbs
+        items={
+          selectedProperty
+            ? [{ label: "Properties", to: "/portal/properties" }, { label: selectedProperty.name, to: `/portal/properties/${selectedProperty.id}` }, { label: "Rate Plans" }]
+            : [{ label: "Rate Plans" }]
+        }
+      />
       <Topbar title="Rate Plans" subtitle="Rate plans always live under Property → Room." />
+
+      <div className="page-section">
+        <Tabs tabs={VIEW_TABS} active={viewMode} onChange={setViewMode} />
+      </div>
 
       <Card padded={false}>
         <div style={{ padding: "20px 20px 0" }}>
@@ -195,7 +247,6 @@ export function RatePlansPage() {
             />
             <SearchBar value={search} onChange={setSearch} placeholder="Search rate plans..." />
             <Select options={MEAL_PLANS} placeholder="Meal Plan" value={mealPlanFilter} onChange={(e) => setMealPlanFilter(e.target.value)} style={{ maxWidth: 150 }} />
-            <Select options={RATE_PLAN_STATUSES} placeholder="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 120 }} />
             <Input type="date" tabular value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ maxWidth: 150 }} title="Valid from" />
             <Input type="date" tabular value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ maxWidth: 150 }} title="Valid to" />
             {filtersActive && (
@@ -204,6 +255,10 @@ export function RatePlansPage() {
               </button>
             )}
             <div className="page-toolbar__spacer" />
+            <button className="btn btn--ghost btn--md" onClick={() => setImportOpen(true)}>
+              <Upload size={16} strokeWidth={2} /><span>Import</span>
+            </button>
+            <ExportMenu rows={exportRowsData} columns={exportColumns} filenameBase="rate-plans" selectedCount={selection.count} />
             <Button variant="primary" size="md" icon={Plus} onClick={openCreate} disabled={!roomId} title={!roomId ? "Select a specific room first" : undefined}>Add Rate Plan</Button>
           </div>
         </div>
@@ -213,10 +268,12 @@ export function RatePlansPage() {
             count={selection.count}
             onClear={selection.clear}
             onArchive={handleBulkArchive}
+            onRestore={handleBulkRestore}
             onDuplicate={handleBulkDuplicate}
             onDelete={() => setConfirmBulkDelete(true)}
-            statusOptions={RATE_PLAN_STATUSES}
+            statusOptions={changeStatusOptions}
             onChangeStatus={handleBulkStatus}
+            archived={archivedView}
           />
           <Table
             columns={columns}
@@ -228,9 +285,9 @@ export function RatePlansPage() {
             emptyState={
               <EmptyState
                 icon={Tag}
-                title="No rate plans found"
+                title={archivedView ? "No archived rate plans" : "No rate plans found"}
                 message="Try adjusting your filters, or add a rate plan to a room."
-                action={<Button variant="secondary" size="sm" icon={Plus} onClick={openCreate} disabled={!roomId}>Add Rate Plan</Button>}
+                action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate} disabled={!roomId}>Add Rate Plan</Button>}
               />
             }
             renderRow={(rp) => {
@@ -254,9 +311,18 @@ export function RatePlansPage() {
                   <td><StatusBadge status={rp.status} /></td>
                   <td>
                     <div className="table__actions">
-                      <button className="table__action-btn" title="Edit" onClick={() => openEdit(rp)}><Pencil size={15} strokeWidth={2} /></button>
-                      <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(rp)}><Copy size={15} strokeWidth={2} /></button>
-                      <button className="table__action-btn table__action-btn--danger" title="Delete" onClick={() => setConfirmDelete(rp)}><Trash2 size={15} strokeWidth={2} /></button>
+                      {rp.status !== "Archived" ? (
+                        <>
+                          <button className="table__action-btn" title="Edit" onClick={() => openEdit(rp)}><Pencil size={15} strokeWidth={2} /></button>
+                          <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(rp)}><Copy size={15} strokeWidth={2} /></button>
+                          <button className="table__action-btn" title="Archive" onClick={() => handleArchive(rp)}><Archive size={15} strokeWidth={2} /></button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="table__action-btn" title="Restore" onClick={() => handleRestore(rp)}><RotateCcw size={15} strokeWidth={2} /></button>
+                          <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(rp)}><Trash2 size={15} strokeWidth={2} /></button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -276,13 +342,15 @@ export function RatePlansPage() {
 
       <RatePlanDetailModal ratePlan={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
 
+      <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} defaultEntityType="ratePlans" />
+
       <ConfirmModal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
-        title="Delete Rate Plan"
-        message={`Are you sure you want to delete "${confirmDelete?.name}"?`}
-        confirmLabel="Delete"
+        title="Delete Rate Plan Permanently"
+        message={`Permanently delete "${confirmDelete?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
         danger
       />
 
@@ -290,9 +358,9 @@ export function RatePlansPage() {
         open={confirmBulkDelete}
         onClose={() => setConfirmBulkDelete(false)}
         onConfirm={handleBulkDelete}
-        title="Delete Rate Plans"
-        message={`Delete ${selection.count} selected rate plan(s)? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title="Delete Rate Plans Permanently"
+        message={`Permanently delete ${selection.count} selected rate plan(s)? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
         danger
       />
     </div>

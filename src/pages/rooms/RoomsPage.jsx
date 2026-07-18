@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { Plus, BedDouble, Pencil, Copy, Trash2, Users, Cigarette, RotateCcw } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Plus, BedDouble, Pencil, Copy, Trash2, Users, Cigarette, RotateCcw, Upload, Archive } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
@@ -11,6 +12,10 @@ import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Checkbox } from "../../components/ui/Checkbox.jsx";
 import { BulkActionBar } from "../../components/ui/BulkActionBar.jsx";
+import { Tabs } from "../../components/ui/Tabs.jsx";
+import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
+import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
+import { ImportWizard } from "../../components/ui/ImportWizard.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
@@ -27,17 +32,23 @@ const BASE_COLUMNS = [
   { key: "occupancy", label: "Occupancy", sortable: true, width: 100 },
   { key: "view", label: "View", sortable: false, width: 130 },
   { key: "status", label: "Status", sortable: true, width: 100 },
-  { key: "actions", label: "", sortable: false, width: 140 },
+  { key: "actions", label: "", sortable: false, width: 150 },
+];
+
+const VIEW_TABS = [
+  { key: "active", label: "Active" },
+  { key: "archived", label: "Archived" },
 ];
 
 export function RoomsPage() {
   const data = useData();
   const toast = useToast();
-  const [propertyId, setPropertyId] = useState("");
+  const [searchParams] = useSearchParams();
+  const [propertyId, setPropertyId] = useState(searchParams.get("propertyId") || "");
   const [search, setSearch] = useState("");
   const [occupancyFilter, setOccupancyFilter] = useState("");
   const [bedTypeFilter, setBedTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [viewMode, setViewMode] = useState("active");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [formOpen, setFormOpen] = useState(false);
@@ -45,10 +56,15 @@ export function RoomsPage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [viewing, setViewing] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const roomsInScope = useMemo(
     () => (propertyId ? data.rooms.filter((r) => r.propertyId === propertyId) : data.rooms),
     [data.rooms, propertyId]
+  );
+  const roomsInView = useMemo(
+    () => roomsInScope.filter((r) => (viewMode === "archived" ? r.status === "Archived" : r.status !== "Archived")),
+    [roomsInScope, viewMode]
   );
   const selectedProperty = data.properties.find((p) => p.id === propertyId);
   const propertyName = (id) => data.properties.find((p) => p.id === id)?.name || "—";
@@ -58,28 +74,27 @@ export function RoomsPage() {
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const filtersActive = search || occupancyFilter || bedTypeFilter || statusFilter;
+  const filtersActive = search || occupancyFilter || bedTypeFilter;
   const resetFilters = () => {
-    setSearch(""); setOccupancyFilter(""); setBedTypeFilter(""); setStatusFilter("");
+    setSearch(""); setOccupancyFilter(""); setBedTypeFilter("");
   };
 
   const { pageData } = useMemo(
     () =>
       usePaginatedSortedFiltered({
-        data: roomsInScope,
+        data: roomsInView,
         search,
         searchFields: ["id", "name", "bedType", "view"],
         filters: {
           occupancy: occupancyFilter ? Number(occupancyFilter) : "",
           bedType: bedTypeFilter,
-          status: statusFilter,
         },
         sortKey,
         sortDir,
         page: 1,
         pageSize: 1000,
       }),
-    [roomsInScope, search, occupancyFilter, bedTypeFilter, statusFilter, sortKey, sortDir]
+    [roomsInView, search, occupancyFilter, bedTypeFilter, sortKey, sortDir]
   );
 
   const visibleIds = pageData.map((r) => r.id);
@@ -114,15 +129,23 @@ export function RoomsPage() {
     toast.info(`Duplicated as ${copy.id}.`);
   };
 
+  const handleArchive = (r) => { data.archiveRoom(r); toast.info(`${r.name} archived.`); };
+  const handleRestore = (r) => { data.restoreRoom(r); toast.success(`${r.name} restored.`); };
+
   const handleDelete = () => {
-    data.deleteRoom(confirmDelete.id);
-    toast.success(`${confirmDelete.name} deleted.`);
+    data.deleteRoomPermanently(confirmDelete.id);
+    toast.success(`${confirmDelete.name} permanently deleted.`);
     setConfirmDelete(null);
   };
 
   const handleBulkArchive = () => {
     data.bulkArchiveRooms(selection.selected);
-    toast.info(`${selection.count} room(s) set to Inactive.`);
+    toast.info(`${selection.count} room(s) archived.`);
+    selection.clear();
+  };
+  const handleBulkRestore = () => {
+    data.bulkRestoreRooms(selection.selected);
+    toast.success(`${selection.count} room(s) restored.`);
     selection.clear();
   };
   const handleBulkDuplicate = () => {
@@ -132,7 +155,7 @@ export function RoomsPage() {
   };
   const handleBulkDelete = () => {
     data.bulkDeleteRooms(selection.selected);
-    toast.success(`${selection.count} room(s) deleted.`);
+    toast.success(`${selection.count} room(s) permanently deleted.`);
     selection.clear();
     setConfirmBulkDelete(false);
   };
@@ -142,9 +165,35 @@ export function RoomsPage() {
     selection.clear();
   };
 
+  const archivedView = viewMode === "archived";
+  const changeStatusOptions = ROOM_STATUSES.filter((s) => s !== "Archived");
+
+  const exportColumns = [
+    { label: "Room ID", value: (r) => r.id },
+    { label: "Name", value: (r) => r.name },
+    { label: "Property", value: (r) => propertyName(r.propertyId) },
+    { label: "Bed Type", value: (r) => r.bedType },
+    { label: "View", value: (r) => r.view },
+    { label: "Max Adults", value: (r) => r.maxAdults },
+    { label: "Max Children", value: (r) => r.maxChildren },
+    { label: "Status", value: (r) => r.status },
+  ];
+  const exportRowsData = selection.count ? roomsInView.filter((r) => selection.selected.includes(r.id)) : pageData;
+
   return (
     <div>
+      <Breadcrumbs
+        items={
+          selectedProperty
+            ? [{ label: "Properties", to: "/portal/properties" }, { label: selectedProperty.name, to: `/portal/properties/${selectedProperty.id}` }, { label: "Rooms" }]
+            : [{ label: "Rooms" }]
+        }
+      />
       <Topbar title="Rooms" subtitle="Rooms are managed within their parent property." />
+
+      <div className="page-section">
+        <Tabs tabs={VIEW_TABS} active={viewMode} onChange={setViewMode} />
+      </div>
 
       <Card padded={false}>
         <div style={{ padding: "20px 20px 0" }}>
@@ -162,13 +211,16 @@ export function RoomsPage() {
             <SearchBar value={search} onChange={setSearch} placeholder="Search rooms..." />
             <Select options={["1", "2", "3", "4"]} placeholder="Occupancy" value={occupancyFilter} onChange={(e) => setOccupancyFilter(e.target.value)} style={{ maxWidth: 130 }} />
             <Select options={BED_TYPES} placeholder="Bed Type" value={bedTypeFilter} onChange={(e) => setBedTypeFilter(e.target.value)} style={{ maxWidth: 140 }} />
-            <Select options={ROOM_STATUSES} placeholder="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ maxWidth: 130 }} />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
                 <RotateCcw size={13} strokeWidth={2} /> Reset
               </button>
             )}
             <div className="page-toolbar__spacer" />
+            <button className="btn btn--ghost btn--md" onClick={() => setImportOpen(true)}>
+              <Upload size={16} strokeWidth={2} /><span>Import</span>
+            </button>
+            <ExportMenu rows={exportRowsData} columns={exportColumns} filenameBase="rooms" selectedCount={selection.count} />
             <Button variant="primary" size="md" icon={Plus} onClick={openCreate} disabled={!propertyId} title={!propertyId ? "Select a specific property first" : undefined}>Add Room</Button>
           </div>
         </div>
@@ -178,10 +230,12 @@ export function RoomsPage() {
             count={selection.count}
             onClear={selection.clear}
             onArchive={handleBulkArchive}
+            onRestore={handleBulkRestore}
             onDuplicate={handleBulkDuplicate}
             onDelete={() => setConfirmBulkDelete(true)}
-            statusOptions={ROOM_STATUSES}
+            statusOptions={changeStatusOptions}
             onChangeStatus={handleBulkStatus}
+            archived={archivedView}
           />
 
           <Table
@@ -194,9 +248,9 @@ export function RoomsPage() {
             emptyState={
               <EmptyState
                 icon={BedDouble}
-                title="No rooms found"
+                title={archivedView ? "No archived rooms" : "No rooms found"}
                 message="Try adjusting your filters, or add a new room to a property."
-                action={<Button variant="secondary" size="sm" icon={Plus} onClick={openCreate} disabled={!propertyId}>Add Room</Button>}
+                action={!archivedView && <Button variant="secondary" size="sm" icon={Plus} onClick={openCreate} disabled={!propertyId}>Add Room</Button>}
               />
             }
             renderRow={(r) => (
@@ -222,9 +276,18 @@ export function RoomsPage() {
                 <td><StatusBadge status={r.status} /></td>
                 <td>
                   <div className="table__actions">
-                    <button className="table__action-btn" title="Edit" onClick={() => openEdit(r)}><Pencil size={15} strokeWidth={2} /></button>
-                    <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(r)}><Copy size={15} strokeWidth={2} /></button>
-                    <button className="table__action-btn table__action-btn--danger" title="Delete" onClick={() => setConfirmDelete(r)}><Trash2 size={15} strokeWidth={2} /></button>
+                    {r.status !== "Archived" ? (
+                      <>
+                        <button className="table__action-btn" title="Edit" onClick={() => openEdit(r)}><Pencil size={15} strokeWidth={2} /></button>
+                        <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(r)}><Copy size={15} strokeWidth={2} /></button>
+                        <button className="table__action-btn" title="Archive" onClick={() => handleArchive(r)}><Archive size={15} strokeWidth={2} /></button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="table__action-btn" title="Restore" onClick={() => handleRestore(r)}><RotateCcw size={15} strokeWidth={2} /></button>
+                        <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(r)}><Trash2 size={15} strokeWidth={2} /></button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -237,13 +300,15 @@ export function RoomsPage() {
 
       <RoomDetailModal room={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
 
+      <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} defaultEntityType="rooms" />
+
       <ConfirmModal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
-        title="Delete Room"
-        message={`Are you sure you want to delete "${confirmDelete?.name}"? This will also remove its rate plans.`}
-        confirmLabel="Delete"
+        title="Delete Room Permanently"
+        message={`"${confirmDelete?.name}" is archived. Permanently deleting it will also remove its rate plans. This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
         danger
       />
 
@@ -251,9 +316,9 @@ export function RoomsPage() {
         open={confirmBulkDelete}
         onClose={() => setConfirmBulkDelete(false)}
         onConfirm={handleBulkDelete}
-        title="Delete Rooms"
-        message={`Delete ${selection.count} selected room(s), along with their rate plans? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title="Delete Rooms Permanently"
+        message={`Permanently delete ${selection.count} selected room(s), along with their rate plans? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
         danger
       />
     </div>

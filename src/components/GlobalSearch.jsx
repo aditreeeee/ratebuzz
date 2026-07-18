@@ -76,7 +76,7 @@ export function GlobalSearch() {
             <div className="global-search__group">
               <div className="global-search__group-label"><Building2 size={12} strokeWidth={2} /> Properties</div>
               {results.properties.map((p) => (
-                <button key={p.id} className="global-search__item" onClick={() => goTo("/portal/properties")}>
+                <button key={p.id} className="global-search__item" onClick={() => goTo(`/portal/properties/${p.id}`)}>
                   <span className="global-search__item-name">{p.name}</span>
                   <span className="global-search__item-meta tabular">{p.id} &middot; {p.city}</span>
                 </button>
