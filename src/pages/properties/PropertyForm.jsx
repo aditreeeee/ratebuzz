@@ -13,17 +13,30 @@ const EMPTY = {
   tags: [], logoUrl: "",
 };
 
+function validate(form) {
+  const errors = {};
+  if (!form.name || !form.name.trim()) errors.name = "Property name is required.";
+  if (!form.country || !form.country.trim()) errors.country = "Country is required.";
+  if (!form.city || !form.city.trim()) errors.city = "City is required.";
+  return errors;
+}
+
 export function PropertyForm({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(initial || EMPTY);
+  const [errors, setErrors] = useState({});
 
   React.useEffect(() => {
     setForm(initial ? { ...EMPTY, ...initial } : EMPTY);
+    setErrors({});
   }, [initial, open]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const validationErrors = validate(form);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
     onSubmit({ ...form, starRating: Number(form.starRating) });
   };
 
@@ -50,19 +63,19 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
         </div>
 
         <div className="form-grid">
-          <Field label="Property Name" required id="p-name">
+          <Field label="Property Name" required id="p-name" error={errors.name}>
             <Input id="p-name" value={form.name} onChange={set("name")} required placeholder="e.g. Aurora Bay Resort" />
           </Field>
           <Field label="Brand" required id="p-brand">
             <Select id="p-brand" options={BRANDS} value={form.brand} onChange={set("brand")} />
           </Field>
-          <Field label="Country" required id="p-country">
+          <Field label="Country" required id="p-country" error={errors.country}>
             <Input id="p-country" value={form.country} onChange={set("country")} required />
           </Field>
           <Field label="State / Region" id="p-state">
             <Input id="p-state" value={form.state} onChange={set("state")} />
           </Field>
-          <Field label="City" required id="p-city">
+          <Field label="City" required id="p-city" error={errors.city}>
             <Input id="p-city" value={form.city} onChange={set("city")} required />
           </Field>
           <Field label="Currency" required id="p-currency">

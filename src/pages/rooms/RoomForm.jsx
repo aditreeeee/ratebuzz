@@ -11,16 +11,40 @@ const EMPTY = {
   bedType: BED_TYPES[0], view: VIEWS[0], smoking: false, status: "Active",
 };
 
+function validate(form) {
+  const errors = {};
+  if (!form.name || !form.name.trim()) errors.name = "Room name is required.";
+  for (const [key, label] of [
+    ["occupancy", "Occupancy"],
+    ["maxAdults", "Max adults"],
+    ["maxChildren", "Max children"],
+  ]) {
+    const val = form[key];
+    if (val === "" || val === null || Number.isNaN(Number(val))) errors[key] = `${label} must be a number.`;
+    else if (Number(val) < (key === "occupancy" ? 1 : 0)) errors[key] = `${label} must be ${key === "occupancy" ? "at least 1" : "0 or more"}.`;
+  }
+  if (!errors.occupancy && !errors.maxAdults && !errors.maxChildren) {
+    if (Number(form.occupancy) > Number(form.maxAdults) + Number(form.maxChildren)) {
+      errors.occupancy = "Occupancy cannot exceed max adults + max children.";
+    }
+  }
+  return errors;
+}
+
 export function RoomForm({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(initial || EMPTY);
+  const [errors, setErrors] = useState({});
 
-  useEffect(() => { setForm(initial || EMPTY); }, [initial, open]);
+  useEffect(() => { setForm(initial || EMPTY); setErrors({}); }, [initial, open]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const setNum = (key) => (e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }));
+  const setNum = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value === "" ? "" : Number(e.target.value) }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const validationErrors = validate(form);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
     onSubmit(form);
   };
 
@@ -59,7 +83,7 @@ export function RoomForm({ open, onClose, onSubmit, initial }) {
       <form id="room-form" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-grid__full">
-            <Field label="Room Name" required id="r-name">
+            <Field label="Room Name" required id="r-name" error={errors.name}>
               <Input id="r-name" value={form.name} onChange={set("name")} required placeholder="e.g. Deluxe Ocean King" />
             </Field>
           </div>
@@ -68,16 +92,16 @@ export function RoomForm({ open, onClose, onSubmit, initial }) {
               <Textarea id="r-desc" value={form.description} onChange={set("description")} />
             </Field>
           </div>
-          <Field label="Occupancy" required id="r-occ">
+          <Field label="Occupancy" required id="r-occ" error={errors.occupancy}>
             <Input id="r-occ" type="number" min="1" tabular value={form.occupancy} onChange={setNum("occupancy")} required />
           </Field>
           <Field label="Bed Type" required id="r-bed">
             <Select id="r-bed" options={BED_TYPES} value={form.bedType} onChange={set("bedType")} />
           </Field>
-          <Field label="Max Adults" required id="r-adults">
+          <Field label="Max Adults" required id="r-adults" error={errors.maxAdults}>
             <Input id="r-adults" type="number" min="0" tabular value={form.maxAdults} onChange={setNum("maxAdults")} required />
           </Field>
-          <Field label="Max Children" required id="r-children">
+          <Field label="Max Children" required id="r-children" error={errors.maxChildren}>
             <Input id="r-children" type="number" min="0" tabular value={form.maxChildren} onChange={setNum("maxChildren")} required />
           </Field>
           <Field label="View" required id="r-view">
