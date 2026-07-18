@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus, Building2, BedDouble, Tag, Settings, Copy, Archive, Trash2, Pencil,
-  MapPin, ArrowUpRight, RotateCcw, Building,
+  MapPin, ArrowUpRight, RotateCcw, Building, Upload,
 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
@@ -17,6 +17,9 @@ import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Checkbox } from "../../components/ui/Checkbox.jsx";
 import { BulkActionBar } from "../../components/ui/BulkActionBar.jsx";
 import { TagChips } from "../../components/ui/TagChips.jsx";
+import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
+import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
+import { ImportWizard } from "../../components/ui/ImportWizard.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
@@ -24,7 +27,6 @@ import { usePaginatedSortedFiltered, formatDate } from "../../lib/format.js";
 import { STATUSES, PROPERTY_TYPES } from "../../mocks/properties.js";
 import { PropertyForm } from "./PropertyForm.jsx";
 import { PropertyIdLookup } from "./PropertyIdLookup.jsx";
-import { PropertyDetailModal } from "./PropertyDetailModal.jsx";
 
 const PAGE_SIZE = 6;
 
@@ -60,7 +62,7 @@ export function PropertiesPage() {
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [viewing, setViewing] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const countries = useMemo(() => [...new Set(data.properties.map((p) => p.country))].sort(), [data.properties]);
   const cities = useMemo(() => [...new Set(data.properties.map((p) => p.city))].sort(), [data.properties]);
@@ -125,7 +127,7 @@ export function PropertiesPage() {
   ];
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
-  const openEdit = (p) => { setViewing(null); setEditing(p); setFormOpen(true); };
+  const openEdit = (p) => { setEditing(p); setFormOpen(true); };
 
   const handleSubmit = (form) => {
     if (editing) {
@@ -146,6 +148,11 @@ export function PropertiesPage() {
   const handleArchive = (p) => {
     data.archiveProperty(p);
     toast.info(`${p.name} archived.`);
+  };
+
+  const handleRestore = (p) => {
+    data.restoreProperty(p);
+    toast.success(`${p.name} restored.`);
   };
 
   const handleDeletePermanently = () => {
@@ -175,9 +182,33 @@ export function PropertiesPage() {
     toast.info(`Status updated to ${status} for ${selection.count} propert${selection.count === 1 ? "y" : "ies"}.`);
     selection.clear();
   };
+  const handleBulkRestore = () => {
+    data.bulkRestoreProperties(selection.selected);
+    toast.success(`${selection.count} propert${selection.count === 1 ? "y" : "ies"} restored.`);
+    selection.clear();
+  };
+
+  const archivedView = statusFilter === "Archived";
+
+  const exportColumns = [
+    { label: "Property ID", value: (p) => p.id },
+    { label: "Name", value: (p) => p.name },
+    { label: "Brand", value: (p) => p.brand },
+    { label: "Property Type", value: (p) => p.propertyType },
+    { label: "City", value: (p) => p.city },
+    { label: "Country", value: (p) => p.country },
+    { label: "Star Rating", value: (p) => p.starRating },
+    { label: "Currency", value: (p) => p.currency },
+    { label: "Status", value: (p) => p.status },
+    { label: "Rooms", value: (p) => data.roomCountFor(p.id) },
+    { label: "Rate Plans", value: (p) => data.ratePlanCountFor(p.id) },
+    { label: "Last Modified", value: (p) => formatDate(p.lastModifiedAt) },
+  ];
+  const exportRowsData = selection.count ? data.properties.filter((p) => selection.selected.includes(p.id)) : pageData;
 
   return (
     <div>
+      <Breadcrumbs items={[{ label: "Properties" }]} />
       <Topbar title="Properties" subtitle="Manage your property portfolio across every market." />
 
       <div className="stat-row">
@@ -220,6 +251,10 @@ export function PropertiesPage() {
               </button>
             )}
             <div className="page-toolbar__spacer" />
+            <button className="btn btn--ghost btn--md" onClick={() => setImportOpen(true)}>
+              <Upload size={16} strokeWidth={2} /><span>Import</span>
+            </button>
+            <ExportMenu rows={exportRowsData} columns={exportColumns} filenameBase="properties" selectedCount={selection.count} />
             <Button variant="primary" size="md" icon={Plus} onClick={openCreate}>Add Property</Button>
           </div>
         </div>
@@ -229,10 +264,12 @@ export function PropertiesPage() {
             count={selection.count}
             onClear={selection.clear}
             onArchive={handleBulkArchive}
+            onRestore={handleBulkRestore}
             onDuplicate={handleBulkDuplicate}
             onDelete={() => setConfirmBulkDelete(true)}
             statusOptions={STATUSES}
             onChangeStatus={handleBulkStatus}
+            archived={archivedView}
           />
 
           <Table
@@ -256,7 +293,7 @@ export function PropertiesPage() {
                   <Checkbox checked={selection.selected.includes(p.id)} onChange={() => selection.toggle(p.id)} label={`Select ${p.name}`} />
                 </td>
                 <td className="tabular table__cell-muted">{p.id}</td>
-                <td className="row-link" onClick={() => setViewing(p)}>
+                <td className="row-link" onClick={() => navigate(`/portal/properties/${p.id}`)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div className="property-thumb">
                       {p.logoUrl ? <img src={p.logoUrl} alt="" /> : <Building size={15} strokeWidth={2} />}
@@ -289,7 +326,10 @@ export function PropertiesPage() {
                     {p.status !== "Archived" ? (
                       <button className="table__action-btn" title="Archive" onClick={() => handleArchive(p)}><Archive size={15} strokeWidth={2} /></button>
                     ) : (
-                      <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(p)}><Trash2 size={15} strokeWidth={2} /></button>
+                      <>
+                        <button className="table__action-btn" title="Restore" onClick={() => handleRestore(p)}><RotateCcw size={15} strokeWidth={2} /></button>
+                        <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(p)}><Trash2 size={15} strokeWidth={2} /></button>
+                      </>
                     )}
                   </div>
                 </td>
@@ -302,7 +342,7 @@ export function PropertiesPage() {
 
       <PropertyForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} />
 
-      <PropertyDetailModal property={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
+      <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} defaultEntityType="properties" />
 
       <ConfirmModal
         open={!!confirmDelete}

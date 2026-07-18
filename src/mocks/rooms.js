@@ -1,6 +1,6 @@
 export const BED_TYPES = ["King", "Queen", "Twin", "Double", "Bunk", "Single"];
 export const VIEWS = ["Ocean View", "City View", "Garden View", "Pool View", "No View"];
-export const ROOM_STATUSES = ["Active", "Inactive"];
+export const ROOM_STATUSES = ["Active", "Inactive", "Archived"];
 
 export let ROOMS = [
   { id: "RM-2001", propertyId: "PROP-1001", name: "Deluxe Ocean King", description: "Spacious king room with private balcony overlooking the bay.", occupancy: 2, maxAdults: 2, maxChildren: 1, bedType: "King", view: "Ocean View", smoking: false, status: "Active" },

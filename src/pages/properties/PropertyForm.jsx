@@ -1,10 +1,11 @@
-import React, { useState } from "react";
-import { Modal } from "../../components/ui/Modal.jsx";
+import React, { useState, useRef } from "react";
+import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { LogoUpload } from "../../components/ui/LogoUpload.jsx";
 import { TagPicker } from "../../components/ui/TagChips.jsx";
 import { BRANDS, CURRENCIES, TIME_ZONES, STATUSES, PROPERTY_TYPES, PROPERTY_TAGS } from "../../mocks/properties.js";
+import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 
 const EMPTY = {
   name: "", brand: BRANDS[0], country: "", state: "", city: "",
@@ -24,11 +25,18 @@ function validate(form) {
 export function PropertyForm({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(initial || EMPTY);
   const [errors, setErrors] = useState({});
+  const baselineRef = useRef(EMPTY);
 
   React.useEffect(() => {
-    setForm(initial ? { ...EMPTY, ...initial } : EMPTY);
+    const baseline = initial ? { ...EMPTY, ...initial } : EMPTY;
+    setForm(baseline);
     setErrors({});
+    baselineRef.current = baseline;
   }, [initial, open]);
+
+  const isDirty = open && JSON.stringify(form) !== JSON.stringify(baselineRef.current);
+  const { confirmOpen, requestAction, confirmDiscard, cancelDiscard } = useUnsavedChanges(isDirty);
+  const guardedClose = () => requestAction(onClose);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -41,14 +49,15 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
   };
 
   return (
+    <>
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={guardedClose}
       title={initial ? "Edit Property" : "Add Property"}
       size="lg"
       footer={
         <>
-          <button className="btn btn--ghost btn--md" onClick={onClose} type="button">Cancel</button>
+          <button className="btn btn--ghost btn--md" onClick={guardedClose} type="button">Cancel</button>
           <Button variant="primary" size="md" onClick={handleSubmit} type="submit" form="property-form">
             {initial ? "Save Changes" : "Create Property"}
           </Button>
@@ -106,5 +115,15 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
         </div>
       </form>
     </Modal>
+    <ConfirmModal
+      open={confirmOpen}
+      onClose={cancelDiscard}
+      onConfirm={confirmDiscard}
+      title="Unsaved Changes"
+      message="You have unsaved changes. Discard them and continue?"
+      confirmLabel="Discard Changes"
+      danger
+    />
+    </>
   );
 }
