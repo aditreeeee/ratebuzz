@@ -23,17 +23,49 @@ export function mealPlanLabel(code) {
 }
 
 export const CANCELLATION_POLICIES = ["Free Cancellation (24h)", "Free Cancellation (72h)", "Non-Refundable", "Partial Refund"];
-export const RATE_PLAN_STATUSES = ["Active", "Inactive", "Archived"];
+
+// A Rate Plan is a long-lived pricing *strategy* — it never expires on its
+// own. Its lifecycle is driven purely by this status; actual time-boxed
+// pricing lives in each record's `pricingPeriods` array (see
+// src/lib/pricingPeriods.js for the Scheduled/Active/Expired classification).
+export const RATE_PLAN_STATUSES = ["Draft", "Active", "Seasonal", "Archived", "Inactive"];
 
 export let RATE_PLANS = [
-  { id: "RP-3001", roomId: "RM-2001", name: "Best Flexible Rate", mealPlan: "CP", cancellationPolicy: "Free Cancellation (24h)", basePrice: 320, weekendPrice: 380, extraAdultPrice: 45, childPrice: 20, validFrom: "2026-01-01", validTo: "2026-12-31", status: "Active" },
-  { id: "RP-3002", roomId: "RM-2001", name: "Advance Purchase Saver", mealPlan: "EP", cancellationPolicy: "Non-Refundable", basePrice: 265, weekendPrice: 310, extraAdultPrice: 40, childPrice: 15, validFrom: "2026-01-01", validTo: "2026-12-31", status: "Active" },
-  { id: "RP-3003", roomId: "RM-2003", name: "Suite All Inclusive", mealPlan: "AP", cancellationPolicy: "Free Cancellation (72h)", basePrice: 890, weekendPrice: 990, extraAdultPrice: 120, childPrice: 60, validFrom: "2026-02-01", validTo: "2026-11-30", status: "Active" },
-  { id: "RP-3004", roomId: "RM-2004", name: "Corporate Rate", mealPlan: "CP", cancellationPolicy: "Free Cancellation (24h)", basePrice: 210, weekendPrice: 195, extraAdultPrice: 35, childPrice: 0, validFrom: "2026-01-01", validTo: "2027-01-01", status: "Active" },
-  { id: "RP-3005", roomId: "RM-2006", name: "Villa Half Board", mealPlan: "MAP", cancellationPolicy: "Partial Refund", basePrice: 1150, weekendPrice: 1290, extraAdultPrice: 150, childPrice: 75, validFrom: "2026-03-01", validTo: "2026-10-31", status: "Inactive" },
+  {
+    id: "RP-3001", roomId: "RM-2001", name: "Best Flexible Rate", mealPlan: "CP", cancellationPolicy: "Free Cancellation (24h)",
+    status: "Active", taxInclusive: false, taxPercent: 12,
+    pricingPeriods: [
+      { id: "PP-1", effectiveFrom: "2026-01-01", effectiveTo: "2026-12-31", baseRate: 320, weekendRate: 380, childRate: 20, extraAdultRate: 45, currency: "USD", archived: false },
+    ],
+  },
+  {
+    id: "RP-3002", roomId: "RM-2001", name: "Advance Purchase Saver", mealPlan: "EP", cancellationPolicy: "Non-Refundable",
+    status: "Active", taxInclusive: true, taxPercent: 12,
+    pricingPeriods: [
+      { id: "PP-1", effectiveFrom: "2025-01-01", effectiveTo: "2025-12-31", baseRate: 245, weekendRate: 285, childRate: 10, extraAdultRate: 35, currency: "USD", archived: false },
+      { id: "PP-2", effectiveFrom: "2026-01-01", effectiveTo: "2026-12-31", baseRate: 265, weekendRate: 310, childRate: 15, extraAdultRate: 40, currency: "USD", archived: false },
+    ],
+  },
+  {
+    id: "RP-3003", roomId: "RM-2003", name: "Suite All Inclusive", mealPlan: "AP", cancellationPolicy: "Free Cancellation (72h)",
+    status: "Active", taxInclusive: false, taxPercent: 8,
+    pricingPeriods: [
+      { id: "PP-1", effectiveFrom: "2026-02-01", effectiveTo: "2026-11-30", baseRate: 890, weekendRate: 990, childRate: 60, extraAdultRate: 120, currency: "USD", archived: false },
+    ],
+  },
+  {
+    id: "RP-3004", roomId: "RM-2004", name: "Corporate Rate", mealPlan: "CP", cancellationPolicy: "Free Cancellation (24h)",
+    status: "Active", taxInclusive: true, taxPercent: 20,
+    pricingPeriods: [
+      { id: "PP-1", effectiveFrom: "2026-01-01", effectiveTo: "2027-01-01", baseRate: 210, weekendRate: 195, childRate: 0, extraAdultRate: 35, currency: "GBP", archived: false },
+      { id: "PP-2", effectiveFrom: "2027-02-01", effectiveTo: "2027-04-30", baseRate: 225, weekendRate: 205, childRate: 0, extraAdultRate: 38, currency: "GBP", archived: false },
+    ],
+  },
+  {
+    id: "RP-3005", roomId: "RM-2006", name: "Villa Half Board", mealPlan: "MAP", cancellationPolicy: "Partial Refund",
+    status: "Inactive", taxInclusive: false, taxPercent: 5,
+    pricingPeriods: [
+      { id: "PP-1", effectiveFrom: "2026-03-01", effectiveTo: "2026-10-31", baseRate: 1150, weekendRate: 1290, childRate: 75, extraAdultRate: 150, currency: "AED", archived: false },
+    ],
+  },
 ];
-
-export function nextRatePlanId() {
-  const nums = RATE_PLANS.map((r) => Number(r.id.split("-")[1]) || 3000);
-  return `RP-${Math.max(...nums, 3000) + 1}`;
-}

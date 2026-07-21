@@ -13,6 +13,7 @@ import { PropertyProfilePage } from "./pages/properties/PropertyProfilePage.jsx"
 import { RoomsPage } from "./pages/rooms/RoomsPage.jsx";
 import { RoomProfilePage } from "./pages/rooms/RoomProfilePage.jsx";
 import { RatePlansPage } from "./pages/ratePlans/RatePlansPage.jsx";
+import { RatePlanProfilePage } from "./pages/ratePlans/RatePlanProfilePage.jsx";
 import { SettingsPage } from "./pages/settings/SettingsPage.jsx";
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
                 <Route path="rooms" element={<RoomsPage />} />
                 <Route path="rooms/:id" element={<RoomProfilePage />} />
                 <Route path="rate-plans" element={<RatePlansPage />} />
+                <Route path="rate-plans/:id" element={<RatePlanProfilePage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/login" replace />} />

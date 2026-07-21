@@ -5,6 +5,9 @@ const STATUS_VARIANT = {
   Draft: "info",
   Inactive: "warning",
   Archived: "danger",
+  Seasonal: "info",
+  Scheduled: "info",
+  Expired: "danger",
 };
 
 export function Badge({ children, variant = "info", className = "" }) {

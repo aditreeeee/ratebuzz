@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Sparkles, LayoutGrid, UtensilsCrossed, Ban, DollarSign, CalendarRange,
+  Sparkles, LayoutGrid, UtensilsCrossed, Ban, Percent,
   Check, AlertCircle, RotateCcw,
 } from "lucide-react";
 import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
@@ -13,30 +13,23 @@ import { MEAL_PLANS, CANCELLATION_POLICIES, RATE_PLAN_STATUSES, mealPlanLabel } 
 import { RATE_PLAN_TEMPLATES } from "../../mocks/ratePlanTemplates.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 
+// pricingPeriods is intentionally never edited here — it's managed on the
+// Rate Plan Profile page's Pricing Periods tab. Keeping the key in EMPTY
+// just ensures baseline spreading ({...EMPTY, ...initial}) always preserves
+// whatever periods already exist through an edit/submit round-trip.
 const EMPTY = {
   name: "", mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0],
-  basePrice: 0, weekendPrice: 0, extraAdultPrice: 0, childPrice: 0,
-  validFrom: "", validTo: "", status: "Active", roomId: "",
+  status: "Draft", roomId: "", taxInclusive: false, taxPercent: 0, pricingPeriods: [],
 };
 
 function validate(form) {
   const errors = {};
   if (!form.roomId) errors.roomId = "Room is required.";
   if (!form.name || !form.name.trim()) errors.name = "Rate plan name is required.";
-  for (const [key, label] of [
-    ["basePrice", "Base price"],
-    ["weekendPrice", "Weekend price"],
-    ["extraAdultPrice", "Extra adult price"],
-    ["childPrice", "Child price"],
-  ]) {
-    const val = form[key];
-    if (val === "" || val === null || Number.isNaN(Number(val))) errors[key] = `${label} must be a number.`;
-    else if (Number(val) < 0) errors[key] = `${label} cannot be negative.`;
-  }
-  if (!form.validFrom) errors.validFrom = "Valid from date is required.";
-  if (!form.validTo) errors.validTo = "Valid to date is required.";
-  if (form.validFrom && form.validTo && form.validTo < form.validFrom) {
-    errors.validTo = "Valid to date must be on or after the valid from date.";
+  if (form.taxPercent === "" || form.taxPercent === null || Number.isNaN(Number(form.taxPercent))) {
+    errors.taxPercent = "Tax percent must be a number.";
+  } else if (Number(form.taxPercent) < 0) {
+    errors.taxPercent = "Tax percent cannot be negative.";
   }
   return errors;
 }
@@ -45,16 +38,14 @@ const SECTION_FIELDS = {
   overview: ["roomId", "name", "status"],
   mealPlan: ["mealPlan"],
   cancellation: ["cancellationPolicy"],
-  pricing: ["basePrice", "weekendPrice", "extraAdultPrice", "childPrice"],
-  validity: ["validFrom", "validTo"],
+  taxes: ["taxInclusive", "taxPercent"],
 };
 
 const SECTIONS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
   { key: "mealPlan", label: "Meal Plan", icon: UtensilsCrossed },
   { key: "cancellation", label: "Cancellation Policy", icon: Ban },
-  { key: "pricing", label: "Pricing", icon: DollarSign },
-  { key: "validity", label: "Validity", icon: CalendarRange },
+  { key: "taxes", label: "Taxes & Fees", icon: Percent },
 ];
 
 export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, rooms = [], allRooms = [], scopeRoomId }) {
@@ -95,7 +86,6 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
   const isSectionComplete = (key) => {
     if (sectionHasError(key)) return false;
     if (key === "overview") return !!form.roomId && !!form.name.trim();
-    if (key === "validity") return !!form.validFrom && !!form.validTo;
     return true;
   };
 
@@ -107,7 +97,7 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
       if (firstErrorSection) setActive(firstErrorSection.key);
       return null;
     }
-    return form;
+    return { ...form, taxPercent: Number(form.taxPercent) };
   };
 
   const handleSubmit = (e) => {
@@ -266,32 +256,24 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
               />
             )}
 
-            {active === "pricing" && (
-              <div className="form-grid">
-                <Field label="Base Price" required id="rp-base" error={errors.basePrice} modified={dirtyFields.has("basePrice")}>
-                  <Input id="rp-base" type="number" min="0" step="0.01" tabular value={form.basePrice} onChange={setNum("basePrice")} required />
-                </Field>
-                <Field label="Weekend Price" required id="rp-weekend" error={errors.weekendPrice} modified={dirtyFields.has("weekendPrice")}>
-                  <Input id="rp-weekend" type="number" min="0" step="0.01" tabular value={form.weekendPrice} onChange={setNum("weekendPrice")} required />
-                </Field>
-                <Field label="Extra Adult Price" id="rp-extra-adult" error={errors.extraAdultPrice} modified={dirtyFields.has("extraAdultPrice")}>
-                  <Input id="rp-extra-adult" type="number" min="0" step="0.01" tabular value={form.extraAdultPrice} onChange={setNum("extraAdultPrice")} />
-                </Field>
-                <Field label="Child Price" id="rp-child" error={errors.childPrice} modified={dirtyFields.has("childPrice")}>
-                  <Input id="rp-child" type="number" min="0" step="0.01" tabular value={form.childPrice} onChange={setNum("childPrice")} />
-                </Field>
-              </div>
-            )}
-
-            {active === "validity" && (
-              <div className="form-grid">
-                <Field label="Valid From" required id="rp-from" error={errors.validFrom} modified={dirtyFields.has("validFrom")}>
-                  <Input id="rp-from" type="date" tabular value={form.validFrom} onChange={set("validFrom")} required />
-                </Field>
-                <Field label="Valid To" required id="rp-to" error={errors.validTo} modified={dirtyFields.has("validTo")}>
-                  <Input id="rp-to" type="date" tabular value={form.validTo} onChange={set("validTo")} required />
-                </Field>
-              </div>
+            {active === "taxes" && (
+              <>
+                <FeatureChipGrid
+                  label="Tax Inclusive"
+                  options={["No", "Yes"]}
+                  value={form.taxInclusive ? "Yes" : "No"}
+                  onChange={(v) => setForm((f) => ({ ...f, taxInclusive: v === "Yes" }))}
+                  multiple={false}
+                  getIcon={ratePlanFeatureIcon}
+                  resetValue={baselineRef.current.taxInclusive ? "Yes" : "No"}
+                  hint="Whether displayed rates already include tax, or tax is added at checkout."
+                />
+                <div className="form-grid" style={{ marginTop: "var(--space-6)" }}>
+                  <Field label="Tax Percent" required id="rp-tax-percent" error={errors.taxPercent} modified={dirtyFields.has("taxPercent")}>
+                    <Input id="rp-tax-percent" type="number" min="0" step="0.1" tabular value={form.taxPercent} onChange={setNum("taxPercent")} required />
+                  </Field>
+                </div>
+              </>
             )}
           </form>
         </div>

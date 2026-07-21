@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw, Archive, Upload, Building2 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
 import { Pagination } from "../../components/ui/Pagination.jsx";
 import { SearchBar } from "../../components/ui/SearchBar.jsx";
-import { Select, Input } from "../../components/ui/Input.jsx";
+import { Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { StatusBadge } from "../../components/ui/Badge.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
@@ -22,10 +23,10 @@ import { usePropertyContext } from "../../context/PropertyContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
-import { usePaginatedSortedFiltered, formatCurrency, formatDate } from "../../lib/format.js";
+import { usePaginatedSortedFiltered, formatCurrency } from "../../lib/format.js";
 import { MEAL_PLANS, RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
+import { getCurrentActivePeriod } from "../../lib/pricingPeriods.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
-import { RatePlanDetailModal } from "./RatePlanDetailModal.jsx";
 
 const PAGE_SIZE = 10;
 
@@ -35,8 +36,8 @@ const BASE_COLUMNS = [
   { key: "room", label: "Room", sortable: false, width: 150 },
   { key: "property", label: "Property", sortable: false, width: 160 },
   { key: "mealPlan", label: "Meal Plan", sortable: false, width: 150 },
-  { key: "basePrice", label: "Base Price", sortable: true, width: 110 },
-  { key: "validTo", label: "Valid Through", sortable: true, width: 130 },
+  { key: "currentPrice", label: "Current Price", sortable: false, width: 120 },
+  { key: "periods", label: "Pricing Periods", sortable: false, width: 110 },
   { key: "status", label: "Status", sortable: true, width: 100 },
   { key: "actions", label: "", sortable: false, width: 150 },
 ];
@@ -49,6 +50,7 @@ const VIEW_TABS = [
 export function RatePlansPage() {
   const data = useData();
   const toast = useToast();
+  const navigate = useNavigate();
   const permissions = usePermissions();
   const { selectedPropertyIds, setSelectedPropertyIds } = usePropertyContext();
   // Room-level selection is new and Rate-Plans-specific, so it's kept as
@@ -60,8 +62,6 @@ export function RatePlansPage() {
   const [search, setSearch] = useState("");
   const [mealPlanFilter, setMealPlanFilter] = useState("");
   const [viewMode, setViewMode] = useState("active");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
@@ -69,7 +69,6 @@ export function RatePlansPage() {
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [viewing, setViewing] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
   const selectedProperties = useMemo(
@@ -125,31 +124,21 @@ export function RatePlansPage() {
     [ratePlansInScope, viewMode]
   );
 
-  const dateFiltered = useMemo(
-    () =>
-      ratePlansInView.filter((rp) => {
-        if (dateFrom && rp.validFrom < dateFrom) return false;
-        if (dateTo && rp.validTo > dateTo) return false;
-        return true;
-      }),
-    [ratePlansInView, dateFrom, dateTo]
-  );
-
   const onSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const filtersActive = search || mealPlanFilter || dateFrom || dateTo;
+  const filtersActive = search || mealPlanFilter;
   const resetFilters = () => {
-    setSearch(""); setMealPlanFilter(""); setDateFrom(""); setDateTo("");
+    setSearch(""); setMealPlanFilter("");
     setPage(1);
   };
 
   const { pageData, total } = useMemo(
     () =>
       usePaginatedSortedFiltered({
-        data: dateFiltered,
+        data: ratePlansInView,
         search,
         searchFields: ["id", "name", "mealPlan"],
         filters: { mealPlan: mealPlanFilter },
@@ -158,7 +147,7 @@ export function RatePlansPage() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    [dateFiltered, search, mealPlanFilter, sortKey, sortDir, page]
+    [ratePlansInView, search, mealPlanFilter, sortKey, sortDir, page]
   );
 
   const visibleIds = pageData.map((rp) => rp.id);
@@ -175,7 +164,7 @@ export function RatePlansPage() {
   ];
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
-  const openEdit = (rp) => { setViewing(null); setEditing(rp); setFormOpen(true); };
+  const openEdit = (rp) => { setEditing(rp); setFormOpen(true); };
 
   const handleSubmit = (form, opts) => {
     if (editing) {
@@ -238,9 +227,8 @@ export function RatePlansPage() {
     { label: "Room", value: (rp) => roomLookup(rp.roomId)?.name || "" },
     { label: "Property", value: (rp) => propertyForRoom(roomLookup(rp.roomId))?.name || "" },
     { label: "Meal Plan", value: (rp) => `${rp.mealPlan} (${mealPlanLabel(rp.mealPlan)})` },
-    { label: "Base Price", value: (rp) => rp.basePrice },
-    { label: "Valid From", value: (rp) => formatDate(rp.validFrom) },
-    { label: "Valid To", value: (rp) => formatDate(rp.validTo) },
+    { label: "Current Price", value: (rp) => { const p = getCurrentActivePeriod(rp.pricingPeriods); return p ? formatCurrency(p.baseRate, p.currency) : ""; } },
+    { label: "Pricing Periods", value: (rp) => (rp.pricingPeriods || []).length },
     { label: "Status", value: (rp) => rp.status },
   ];
   const exportRowsData = selection.count ? ratePlansInView.filter((rp) => selection.selected.includes(rp.id)) : pageData;
@@ -284,8 +272,6 @@ export function RatePlansPage() {
           <div className="page-toolbar">
             <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search rate plans..." />
             <Select options={MEAL_PLANS} placeholder="Meal Plan" value={mealPlanFilter} onChange={(e) => { setMealPlanFilter(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} />
-            <Input type="date" tabular value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} title="Valid from" />
-            <Input type="date" tabular value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} title="Valid to" />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
                 <RotateCcw size={13} strokeWidth={2} /> Reset
@@ -331,21 +317,22 @@ export function RatePlansPage() {
             renderRow={(rp) => {
               const room = roomLookup(rp.roomId);
               const property = propertyForRoom(room);
+              const currentPeriod = getCurrentActivePeriod(rp.pricingPeriods);
               return (
                 <tr key={rp.id}>
                   <td>
                     <Checkbox checked={selection.selected.includes(rp.id)} onChange={() => selection.toggle(rp.id)} label={`Select ${rp.name}`} />
                   </td>
                   <td className="tabular table__cell-muted">{rp.id}</td>
-                  <td className="row-link" onClick={() => setViewing(rp)}>
+                  <td className="row-link" onClick={() => navigate(`/portal/rate-plans/${rp.id}`)}>
                     <div className="table__cell-primary">{rp.name}</div>
                     <div className="table__cell-muted">{rp.cancellationPolicy}</div>
                   </td>
                   <td className="table__cell-muted">{room?.name || "—"}</td>
                   <td className="table__cell-muted">{property?.name || "—"}</td>
                   <td title={mealPlanLabel(rp.mealPlan)}>{rp.mealPlan}</td>
-                  <td className="tabular">{formatCurrency(rp.basePrice, property?.currency || "USD")}</td>
-                  <td className="tabular">{formatDate(rp.validTo)}</td>
+                  <td className="tabular">{currentPeriod ? formatCurrency(currentPeriod.baseRate, currentPeriod.currency) : "—"}</td>
+                  <td className="tabular">{(rp.pricingPeriods || []).length}</td>
                   <td><StatusBadge status={rp.status} /></td>
                   <td>
                     <div className="table__actions">
@@ -387,8 +374,6 @@ export function RatePlansPage() {
         allRooms={data.rooms}
         scopeRoomId={scopeRoomId}
       />
-
-      <RatePlanDetailModal ratePlan={viewing} onClose={() => setViewing(null)} onEdit={openEdit} />
 
       <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} defaultEntityType="ratePlans" />
 

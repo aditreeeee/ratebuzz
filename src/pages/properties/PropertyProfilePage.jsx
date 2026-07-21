@@ -15,6 +15,7 @@ import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { formatDate, formatCurrency } from "../../lib/format.js";
+import { getCurrentActivePeriod } from "../../lib/pricingPeriods.js";
 import { useData } from "../../context/DataContext.jsx";
 import { usePropertyContext } from "../../context/PropertyContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
@@ -221,12 +222,15 @@ export function PropertyProfilePage() {
               <EmptyState icon={Tag} title="No rate plans yet" message="Add a rate plan to a room in this property." />
             ) : (
               <div className="detail-linked-list">
-                {ratePlans.map((rp) => (
-                  <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => goToScoped("/portal/rate-plans")}>
-                    <span>{rp.name}</span>
-                    <span className="tabular">{formatCurrency(rp.basePrice, property.currency)}</span>
-                  </div>
-                ))}
+                {ratePlans.map((rp) => {
+                  const currentPeriod = getCurrentActivePeriod(rp.pricingPeriods);
+                  return (
+                    <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/portal/rate-plans/${rp.id}`)}>
+                      <span>{rp.name}</span>
+                      <span className="tabular">{currentPeriod ? formatCurrency(currentPeriod.baseRate, currentPeriod.currency) : "—"}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
