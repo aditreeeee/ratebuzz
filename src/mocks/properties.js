@@ -8,7 +8,6 @@ export const PROPERTY_TYPES = [
 export const PROPERTY_CATEGORIES = ["Independent Property", "Chain Hotel", "Franchise", "Branded Property"];
 export const SERVICE_MODELS = ["Limited Service", "Select Service", "Full Service", "Luxury Service"];
 export const ACCOMMODATION_STYLES = ["Standard Property", "All Suites", "All Inclusive", "Adults Only", "Family Friendly"];
-export const BRANDS = ["Aurora Collection", "Meridian Hotels", "Coastal Escapes", "Urban Nest", "Independent"];
 export const CURRENCIES = ["USD", "EUR", "GBP", "AED", "INR", "SGD"];
 export const TIME_ZONES = [
   "America/New_York", "America/Los_Angeles", "Europe/London",
@@ -19,7 +18,7 @@ export const PROPERTY_TAGS = ["Luxury", "Resort", "Business", "Airport", "Boutiq
 
 export let PROPERTIES = [
   {
-    id: "PROP-1001", name: "Aurora Bay Resort", brand: "Aurora Collection",
+    id: "PROP-1001", name: "Aurora Bay Resort",
     country: "United States", state: "Florida", city: "Miami",
     currency: "USD", timeZone: "America/New_York", starRating: 5,
     propertyType: "Beach Resort", status: "Active",
@@ -30,7 +29,7 @@ export let PROPERTIES = [
     ownerId: "OWNER-1",
   },
   {
-    id: "PROP-1002", name: "Meridian Grand Downtown", brand: "Meridian Hotels",
+    id: "PROP-1002", name: "Meridian Grand Downtown",
     country: "United Kingdom", state: "England", city: "London",
     currency: "GBP", timeZone: "Europe/London", starRating: 4,
     propertyType: "Business Hotel", status: "Active",
@@ -41,7 +40,7 @@ export let PROPERTIES = [
     ownerId: "OWNER-2",
   },
   {
-    id: "PROP-1003", name: "Coastal Escapes Villa Retreat", brand: "Coastal Escapes",
+    id: "PROP-1003", name: "Coastal Escapes Villa Retreat",
     country: "United Arab Emirates", state: "Dubai", city: "Dubai",
     currency: "AED", timeZone: "Asia/Dubai", starRating: 5,
     propertyType: "Villa Property", status: "Active",
@@ -52,7 +51,7 @@ export let PROPERTIES = [
     ownerId: "OWNER-1",
   },
   {
-    id: "PROP-1004", name: "Urban Nest Loft Suites", brand: "Urban Nest",
+    id: "PROP-1004", name: "Urban Nest Loft Suites",
     country: "India", state: "Karnataka", city: "Bengaluru",
     currency: "INR", timeZone: "Asia/Kolkata", starRating: 3,
     propertyType: "Serviced Apartment", status: "Draft",
@@ -63,7 +62,7 @@ export let PROPERTIES = [
     ownerId: "OWNER-2",
   },
   {
-    id: "PROP-1005", name: "The Cinnamon Boutique", brand: "Independent",
+    id: "PROP-1005", name: "The Cinnamon Boutique",
     country: "Singapore", state: "Singapore", city: "Singapore",
     currency: "SGD", timeZone: "Asia/Singapore", starRating: 4,
     propertyType: "Boutique Hotel", status: "Active",
@@ -74,7 +73,7 @@ export let PROPERTIES = [
     ownerId: "OWNER-2",
   },
   {
-    id: "PROP-1006", name: "Meridian Riviera Hotel", brand: "Meridian Hotels",
+    id: "PROP-1006", name: "Meridian Riviera Hotel",
     country: "France", state: "Provence-Alpes-Cote d'Azur", city: "Nice",
     currency: "EUR", timeZone: "Europe/Paris", starRating: 4,
     propertyType: "Hotel", status: "Archived",

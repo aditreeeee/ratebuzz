@@ -16,7 +16,6 @@ import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Checkbox } from "../../components/ui/Checkbox.jsx";
 import { BulkActionBar } from "../../components/ui/BulkActionBar.jsx";
-import { TagChips } from "../../components/ui/TagChips.jsx";
 import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
 import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
 import { ImportWizard } from "../../components/ui/ImportWizard.jsx";
@@ -35,8 +34,9 @@ const BASE_COLUMNS = [
   { key: "id", label: "Property ID", sortable: true, width: 120 },
   { key: "name", label: "Name", sortable: true },
   { key: "propertyType", label: "Type", sortable: true, width: 100 },
+  { key: "serviceModel", label: "Service Model", sortable: false, width: 130 },
+  { key: "accommodationStyle", label: "Accommodation Style", sortable: false, width: 150 },
   { key: "city", label: "Location", sortable: false, width: 160 },
-  { key: "tags", label: "Tags", sortable: false, width: 150 },
   { key: "rooms", label: "Rooms", sortable: false, width: 80 },
   { key: "ratePlans", label: "Rate Plans", sortable: false, width: 90 },
   { key: "status", label: "Status", sortable: true, width: 100 },
@@ -54,7 +54,6 @@ export function PropertiesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("");
-  const [brandFilter, setBrandFilter] = useState("");
   const [starFilter, setStarFilter] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
@@ -68,7 +67,6 @@ export function PropertiesPage() {
 
   const countries = useMemo(() => [...new Set(data.properties.map((p) => p.country))].sort(), [data.properties]);
   const cities = useMemo(() => [...new Set(data.properties.map((p) => p.city))].sort(), [data.properties]);
-  const brands = useMemo(() => [...new Set(data.properties.map((p) => p.brand))].sort(), [data.properties]);
 
   const onSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -78,11 +76,11 @@ export function PropertiesPage() {
     }
   };
 
-  const filtersActive = typeFilter || statusFilter || countryFilter || cityFilter || brandFilter || starFilter || search;
+  const filtersActive = typeFilter || statusFilter || countryFilter || cityFilter || starFilter || search;
 
   const resetFilters = () => {
     setSearch(""); setTypeFilter(""); setStatusFilter("");
-    setCountryFilter(""); setCityFilter(""); setBrandFilter(""); setStarFilter("");
+    setCountryFilter(""); setCityFilter(""); setStarFilter("");
     setPage(1);
   };
 
@@ -91,13 +89,12 @@ export function PropertiesPage() {
       usePaginatedSortedFiltered({
         data: data.properties,
         search,
-        searchFields: ["id", "name", "city", "country", "brand"],
+        searchFields: ["id", "name", "city", "country"],
         filters: {
           propertyType: typeFilter,
           status: statusFilter,
           country: countryFilter,
           city: cityFilter,
-          brand: brandFilter,
           starRating: starFilter ? Number(starFilter) : "",
         },
         sortKey,
@@ -105,7 +102,7 @@ export function PropertiesPage() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    [data.properties, search, typeFilter, statusFilter, countryFilter, cityFilter, brandFilter, starFilter, sortKey, sortDir, page]
+    [data.properties, search, typeFilter, statusFilter, countryFilter, cityFilter, starFilter, sortKey, sortDir, page]
   );
 
   const visibleIds = pageData.map((p) => p.id);
@@ -197,12 +194,11 @@ export function PropertiesPage() {
   const exportColumns = [
     { label: "Property ID", value: (p) => p.id },
     { label: "Name", value: (p) => p.name },
-    { label: "Brand", value: (p) => p.brand },
     { label: "Property Type", value: (p) => p.propertyType },
+    { label: "Service Model", value: (p) => p.serviceModel },
+    { label: "Accommodation Style", value: (p) => p.accommodationStyle },
     { label: "City", value: (p) => p.city },
     { label: "Country", value: (p) => p.country },
-    { label: "Star Rating", value: (p) => p.starRating },
-    { label: "Currency", value: (p) => p.currency },
     { label: "Status", value: (p) => p.status },
     { label: "Rooms", value: (p) => data.roomCountFor(p.id) },
     { label: "Rate Plans", value: (p) => data.ratePlanCountFor(p.id) },
@@ -247,7 +243,6 @@ export function PropertiesPage() {
             <Select options={STATUSES} placeholder="All Statuses" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
             <Select options={countries} placeholder="All Countries" value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} />
             <Select options={cities} placeholder="All Cities" value={cityFilter} onChange={(e) => { setCityFilter(e.target.value); setPage(1); }} style={{ maxWidth: 140 }} />
-            <Select options={brands} placeholder="All Brands" value={brandFilter} onChange={(e) => { setBrandFilter(e.target.value); setPage(1); }} style={{ maxWidth: 160 }} />
             <Select options={["1", "2", "3", "4", "5"]} placeholder="All Ratings" value={starFilter} onChange={(e) => { setStarFilter(e.target.value); setPage(1); }} style={{ maxWidth: 130 }} />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
@@ -302,20 +297,18 @@ export function PropertiesPage() {
                     <div className="property-thumb">
                       {p.logoUrl ? <img src={p.logoUrl} alt="" /> : <Building size={15} strokeWidth={2} />}
                     </div>
-                    <div>
-                      <div className="table__cell-primary">{p.name}</div>
-                      <div className="table__cell-muted">{p.brand}</div>
-                    </div>
+                    <div className="table__cell-primary">{p.name}</div>
                   </div>
                 </td>
                 <td>{p.propertyType}</td>
+                <td className="table__cell-muted">{p.serviceModel}</td>
+                <td className="table__cell-muted">{p.accommodationStyle}</td>
                 <td>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <MapPin size={13} strokeWidth={2} style={{ color: "var(--color-text-faint)" }} />
                     {p.city}, {p.country}
                   </span>
                 </td>
-                <td><TagChips tags={p.tags} /></td>
                 <td className="tabular">{data.roomCountFor(p.id)}</td>
                 <td className="tabular">{data.ratePlanCountFor(p.id)}</td>
                 <td><StatusBadge status={p.status} /></td>

@@ -77,7 +77,7 @@ export function PropertyIdLookup() {
             </div>
             <span className="lookup-result__name">{result.property.name}</span>
             <span className="lookup-result__meta">
-              {result.property.brand} &middot; {result.property.city}, {result.property.country} &middot; {result.property.starRating}★ &middot; {result.property.currency}
+              {result.property.city}, {result.property.country} &middot; {result.property.starRating}★ &middot; {result.property.currency}
             </span>
             <TagChips tags={result.property.tags} />
           </div>

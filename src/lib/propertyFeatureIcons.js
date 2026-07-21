@@ -7,13 +7,6 @@ import {
 const DEFAULT_ICON = Sparkles;
 
 const PROPERTY_ICONS = {
-  // Brands
-  "Aurora Collection": Sparkles,
-  "Meridian Hotels": Building2,
-  "Coastal Escapes": Waves,
-  "Urban Nest": Building,
-  "Independent": Home,
-
   // Property Types
   "Hotel": Building2,
   "Resort": Waves,

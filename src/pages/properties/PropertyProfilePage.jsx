@@ -83,7 +83,6 @@ export function PropertyProfilePage() {
   const exportColumns = [
     { label: "Property ID", value: (p) => p.id },
     { label: "Name", value: (p) => p.name },
-    { label: "Brand", value: (p) => p.brand },
     { label: "City", value: (p) => p.city },
     { label: "Country", value: (p) => p.country },
     { label: "Status", value: (p) => p.status },
@@ -126,7 +125,6 @@ export function PropertyProfilePage() {
         <Card>
           <div className="detail-grid">
             <div className="detail-field"><span>Property ID</span><strong className="tabular">{property.id}</strong></div>
-            <div className="detail-field"><span>Brand</span><strong>{property.brand}</strong></div>
             <div className="detail-field"><span>Property Type</span><strong>{property.propertyType}</strong></div>
             <div className="detail-field"><span>Star Rating</span><strong><Star size={12} strokeWidth={2} fill="currentColor" style={{ marginRight: 4, color: "var(--color-warning)" }} />{property.starRating}</strong></div>
             <div className="detail-field"><span>Rooms</span><strong className="tabular">{rooms.length}</strong></div>

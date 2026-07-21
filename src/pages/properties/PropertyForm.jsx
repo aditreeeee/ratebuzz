@@ -11,14 +11,14 @@ import { TagPicker } from "../../components/ui/TagChips.jsx";
 import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { propertyFeatureIcon } from "../../lib/propertyFeatureIcons.js";
 import {
-  BRANDS, CURRENCIES, TIME_ZONES, STATUSES, PROPERTY_TYPES, PROPERTY_TAGS,
+  CURRENCIES, TIME_ZONES, STATUSES, PROPERTY_TYPES, PROPERTY_TAGS,
   PROPERTY_CATEGORIES, SERVICE_MODELS, ACCOMMODATION_STYLES,
 } from "../../mocks/properties.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 
 const EMPTY = {
-  name: "", brand: BRANDS[0], country: "", state: "", city: "",
+  name: "", country: "", state: "", city: "",
   currency: CURRENCIES[0], timeZone: TIME_ZONES[0], starRating: 3,
   propertyType: PROPERTY_TYPES[0], status: "Draft", description: "",
   propertyCategory: PROPERTY_CATEGORIES[0], serviceModel: SERVICE_MODELS[0], accommodationStyle: ACCOMMODATION_STYLES[0],
@@ -46,7 +46,7 @@ function validate(form) {
 const SECTION_FIELDS = {
   overview: ["name", "description", "status"],
   location: ["country", "state", "city"],
-  classification: ["brand", "propertyType", "propertyCategory", "serviceModel", "accommodationStyle"],
+  classification: ["propertyType", "propertyCategory", "serviceModel", "accommodationStyle"],
   operational: ["currency", "timeZone", "starRating"],
   contact: ["contactEmail", "contactWebsite"],
   tags: [],
@@ -227,10 +227,7 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
 
             {active === "classification" && (
               <>
-                <FeatureChipGrid label="Brand" options={BRANDS} value={form.brand} onChange={setField("brand")} multiple={false} getIcon={propertyFeatureIcon} resetValue={baselineRef.current.brand} />
-                <div style={{ marginTop: "var(--space-6)" }}>
-                  <FeatureChipGrid label="Property Type" options={PROPERTY_TYPES} value={form.propertyType} onChange={setField("propertyType")} multiple={false} getIcon={propertyFeatureIcon} resetValue={baselineRef.current.propertyType} />
-                </div>
+                <FeatureChipGrid label="Property Type" options={PROPERTY_TYPES} value={form.propertyType} onChange={setField("propertyType")} multiple={false} getIcon={propertyFeatureIcon} resetValue={baselineRef.current.propertyType} />
                 <div style={{ marginTop: "var(--space-6)" }}>
                   <FeatureChipGrid label="Property Category" options={PROPERTY_CATEGORIES} value={form.propertyCategory} onChange={setField("propertyCategory")} multiple={false} getIcon={propertyFeatureIcon} resetValue={baselineRef.current.propertyCategory} />
                 </div>

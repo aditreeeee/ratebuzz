@@ -25,7 +25,7 @@ export function GlobalSearch() {
     if (!q) return { properties: [], rooms: [], ratePlans: [] };
 
     const properties = data.properties
-      .filter((p) => [p.id, p.name, p.city, p.brand, p.country].some((f) => String(f).toLowerCase().includes(q)))
+      .filter((p) => [p.id, p.name, p.city, p.country].some((f) => String(f).toLowerCase().includes(q)))
       .slice(0, MAX_PER_GROUP);
 
     const rooms = data.rooms
