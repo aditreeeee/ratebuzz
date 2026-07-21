@@ -213,7 +213,7 @@ export function PropertiesPage() {
   return (
     <div>
       <Breadcrumbs items={[{ label: "Properties" }]} />
-      <Topbar title="Properties" subtitle="Manage your property portfolio across every market." />
+      <Topbar title="Properties" subtitle="Manage your property portfolio across every market." hidePropertySelector />
 
       <div className="stat-row">
         {stats.map((s) => (
