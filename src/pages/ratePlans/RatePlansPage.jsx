@@ -6,7 +6,6 @@ import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
 import { Pagination } from "../../components/ui/Pagination.jsx";
 import { SearchBar } from "../../components/ui/SearchBar.jsx";
-import { Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { StatusBadge } from "../../components/ui/Badge.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
@@ -25,7 +24,7 @@ import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
 import { usePaginatedSortedFiltered, formatCurrency } from "../../lib/format.js";
-import { MEAL_PLANS, RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
+import { RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
 import { getCurrentActivePeriod } from "../../lib/pricingPeriods.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 
@@ -61,7 +60,7 @@ export function RatePlansPage() {
   // any other property-scoped consumer stay in sync.
   const [selectedRoomIds, setSelectedRoomIds] = useState([]);
   const [search, setSearch] = useState("");
-  const [mealPlanFilter, setMealPlanFilter] = useState("");
+  const [mealPlanFilter, setMealPlanFilter] = usePersistedState("ratePlans.mealPlanFilter", []);
   const [viewMode, setViewMode] = useState("active");
   const [sortKey, setSortKey] = usePersistedState("ratePlans.sortKey", "name");
   const [sortDir, setSortDir] = usePersistedState("ratePlans.sortDir", "asc");
@@ -130,11 +129,18 @@ export function RatePlansPage() {
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const filtersActive = search || mealPlanFilter;
+  const filtersActive = Boolean(search) || mealPlanFilter.length > 0;
   const resetFilters = () => {
-    setSearch(""); setMealPlanFilter("");
+    setSearch(""); setMealPlanFilter([]);
     setPage(1);
   };
+
+  // Any change to the panel's filter selections (property/room scope, meal
+  // plan) or the search box should snap back to page 1.
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyIds, selectedRoomIds, mealPlanFilter, search, viewMode]);
 
   const { pageData, total } = useMemo(
     () =>
@@ -251,6 +257,8 @@ export function RatePlansPage() {
           setSelectedPropertyIds={setSelectedPropertyIds}
           selectedRoomIds={selectedRoomIds}
           setSelectedRoomIds={setSelectedRoomIds}
+          mealPlanFilter={mealPlanFilter}
+          setMealPlanFilter={setMealPlanFilter}
         />
 
         <div className="property-scoped-layout__content">
@@ -272,7 +280,6 @@ export function RatePlansPage() {
         <div style={{ padding: "20px 20px 0" }}>
           <div className="page-toolbar">
             <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search rate plans..." />
-            <Select options={MEAL_PLANS} placeholder="Meal Plan" value={mealPlanFilter} onChange={(e) => { setMealPlanFilter(e.target.value); setPage(1); }} style={{ maxWidth: 150 }} />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
                 <RotateCcw size={13} strokeWidth={2} /> Reset

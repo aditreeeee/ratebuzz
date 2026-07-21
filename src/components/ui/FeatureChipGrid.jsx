@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { Search, Check, RotateCcw } from "lucide-react";
+import { Search, Check, RotateCcw, Settings2 } from "lucide-react";
 import { featureIcon as roomFeatureIcon } from "../../lib/roomFeatureIcons.js";
 
 const SEARCH_THRESHOLD = 8;
 
 export function FeatureChipGrid({
   label, options = [], value, onChange, multiple = true, resetValue, hint, getIcon = roomFeatureIcon,
+  onManage, manageLabel = "Manage",
 }) {
   const [query, setQuery] = useState("");
   const selected = multiple ? (value || []) : value ? [value] : [];
@@ -47,6 +48,11 @@ export function FeatureChipGrid({
           {canReset && (
             <button type="button" className="feature-grid__action feature-grid__action--reset" onClick={doReset}>
               <RotateCcw size={12} strokeWidth={2} /> Reset
+            </button>
+          )}
+          {onManage && (
+            <button type="button" className="feature-grid__action" onClick={onManage}>
+              <Settings2 size={12} strokeWidth={2} /> {manageLabel}
             </button>
           )}
         </div>

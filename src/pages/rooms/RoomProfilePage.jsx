@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   BedDouble, MapPin, Pencil, Copy, Archive, RotateCcw, Trash2,
-  LayoutGrid, Layers, Users, Sofa, Eye, Accessibility, Heart, Tag, StickyNote, Plus,
+  LayoutGrid, Layers, Users, Sofa, Heart, Tag, StickyNote, Plus,
 } from "lucide-react";
 import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
 import { Tabs } from "../../components/ui/Tabs.jsx";
@@ -25,8 +25,6 @@ const TABS = [
   { key: "classification", label: "Classification", icon: Layers },
   { key: "occupancy", label: "Occupancy", icon: Users },
   { key: "amenities", label: "Amenities", icon: Sofa },
-  { key: "views", label: "Views", icon: Eye },
-  { key: "accessibility", label: "Accessibility", icon: Accessibility },
   { key: "suited", label: "Best Suited For", icon: Heart },
   { key: "ratePlans", label: "Rate Plans", icon: Tag },
   { key: "notes", label: "Notes", icon: StickyNote },
@@ -126,6 +124,7 @@ export function RoomProfilePage() {
             <div className="detail-field"><span>Bed Configuration</span><strong>{room.bedConfiguration}</strong></div>
             <div className="detail-field"><span>Occupancy</span><strong><Users size={12} strokeWidth={2} style={{ marginRight: 4 }} />{room.maxAdults} Adults / {room.maxChildren} Children</strong></div>
             <div className="detail-field"><span>Rate Plans</span><strong className="tabular">{ratePlans.length}</strong></div>
+            <div className="detail-field"><span>Square Feet / Metres</span><strong className="tabular">{room.squareFeet ? room.squareFeet : "—"}</strong></div>
           </div>
           <div className="detail-field detail-field--full" style={{ marginTop: 16 }}>
             <span>Classification</span>
@@ -187,24 +186,6 @@ export function RoomProfilePage() {
           <div className="detail-field detail-field--full">
             <span>Room Amenities</span>
             <TagChips tags={room.amenities} max={40} />
-          </div>
-        </Card>
-      )}
-
-      {active === "views" && (
-        <Card>
-          <div className="detail-grid">
-            <div className="detail-field"><span>Room View</span><strong>{room.view}</strong></div>
-            <div className="detail-field"><span>Room Position</span><strong>{room.roomPosition}</strong></div>
-          </div>
-        </Card>
-      )}
-
-      {active === "accessibility" && (
-        <Card>
-          <div className="detail-field detail-field--full">
-            <span>Accessibility Features</span>
-            <TagChips tags={room.accessibilityFeatures} max={40} />
           </div>
         </Card>
       )}

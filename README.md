@@ -4,6 +4,22 @@ Frontend-only enterprise hotel revenue management app: Properties → Rooms → 
 with role-based access control. No backend, no build step — pure React run
 in-browser via a service worker (Babel transform at request time).
 
+See **[HELP.pdf](./HELP.pdf)** for the full guide (installation, folder organization, mock
+data architecture, user roles, module overview, and the .NET/SQL Server integration roadmap).
+
+## Target architecture (planned backend)
+
+This app is frontend-only today, but is deliberately structured for a straightforward
+migration to a real backend — no frontend redesign, just swapping `DataContext`'s in-memory
+reducer for HTTP calls:
+
+- **Database:** `NEW DATABASE: RATEBUZZ` (SQL Server 2022)
+- **Backend target:** .NET Core 8.0 (C#)
+- **Framework:** ASP.NET MVC
+- **Views:** kept **uncompiled** — every `.jsx` page in `src/pages/` is served as-is by the
+  dev service worker (no bundler, no build artifacts), so it stays easy to port into MVC
+  Views/View Components without reconciling against hashed bundler output.
+
 ## Run locally
 
 **Windows PowerShell prerequisite:** if running `serve.ps1` directly gives a
@@ -30,6 +46,7 @@ Then open http://localhost:5173/.
 - React 18 + react-router-dom, loaded via `<script type="importmap">` in `index.html` — no npm install, no bundler.
 - Plain CSS design system in `src/styles/` (`tokens.css` for design tokens, rest split by concern).
 - All data is mock/in-memory (`src/mocks/*.js`), managed through `DataContext` — structured so real API calls can replace the dispatch actions later.
+- Master data (Room Types, Amenities, Room Templates) lives in `src/mocks/masterData.js` and supports frontend CRUD (`addMasterItem` / `updateMasterItem` / `deleteMasterItem`, keyed by table name) via `DataContext`, architected to map 1:1 onto future SQL Server master tables and MVC controllers.
 
 ## Structure
 

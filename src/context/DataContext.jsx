@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useMemo } fr
 import { PROPERTIES } from "../mocks/properties.js";
 import { ROOMS } from "../mocks/rooms.js";
 import { RATE_PLANS } from "../mocks/ratePlans.js";
+import { ROOM_TYPES_MASTER, AMENITIES_MASTER, ROOM_TEMPLATES_MASTER } from "../mocks/masterData.js";
 import { useAuth } from "./AuthContext.jsx";
 import { getPermissions } from "../lib/permissions.js";
 
@@ -11,6 +12,11 @@ const initialState = {
   properties: PROPERTIES,
   rooms: ROOMS,
   ratePlans: RATE_PLANS,
+  masters: {
+    roomTypes: ROOM_TYPES_MASTER,
+    amenities: AMENITIES_MASTER,
+    roomTemplates: ROOM_TEMPLATES_MASTER,
+  },
 };
 
 function nextId(items, prefix, base) {
@@ -83,6 +89,30 @@ function reducer(state, action) {
       return { ...state, ratePlans: [...action.payload, ...state.ratePlans] };
     case "BULK_DELETE_RATE_PLANS":
       return { ...state, ratePlans: state.ratePlans.filter(notInSet(action.ids)) };
+
+    // Master data (Room Types / Amenities / Room Templates). Parameterized by
+    // `kind` (the master table name) instead of one reducer case per table —
+    // this is the exact shape a generic `/api/masters/{kind}` MVC controller
+    // would expose, so no reducer changes are needed when new master tables
+    // are added later.
+    case "ADD_MASTER_ITEM":
+      return {
+        ...state,
+        masters: { ...state.masters, [action.kind]: [...state.masters[action.kind], action.payload] },
+      };
+    case "UPDATE_MASTER_ITEM":
+      return {
+        ...state,
+        masters: {
+          ...state.masters,
+          [action.kind]: state.masters[action.kind].map((item) => (item.id === action.payload.id ? action.payload : item)),
+        },
+      };
+    case "DELETE_MASTER_ITEM":
+      return {
+        ...state,
+        masters: { ...state.masters, [action.kind]: state.masters[action.kind].filter((item) => item.id !== action.id) },
+      };
 
     default:
       return state;
@@ -178,6 +208,20 @@ export function DataProvider({ children }) {
         dispatch({ type: "ADD_ROOM", payload: room });
         return room;
       },
+      // Adds multiple rooms in one dispatch, assigning each a unique id off
+      // a local cursor — calling addRoom() in a loop would compute the same
+      // "next" id for every iteration since state.rooms doesn't update until
+      // the next render. Used for multi-property room cloning.
+      addRooms: (dataArray) => {
+        let cursor = state.rooms;
+        const created = dataArray.map((d) => {
+          const room = stamp({ ...d, id: nextId(cursor, "RM", 2000) });
+          cursor = [room, ...cursor];
+          return room;
+        });
+        dispatch({ type: "BULK_ADD_ROOMS", payload: created });
+        return created;
+      },
       updateRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp(room) }),
       archiveRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp({ ...room, status: "Archived" }) }),
       restoreRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp({ ...room, status: "Active" }) }),
@@ -235,6 +279,16 @@ export function DataProvider({ children }) {
         return copies;
       },
       bulkDeleteRatePlans: (ids) => dispatch({ type: "BULK_DELETE_RATE_PLANS", ids }),
+
+      // Master data (Room Types / Amenities / Room Templates). `kind` is the
+      // master table key (mirrors the future MVC route/table name).
+      addMasterItem: (kind, data) => {
+        const item = stamp({ ...data, id: nextId(state.masters[kind], "MST", 1000) });
+        dispatch({ type: "ADD_MASTER_ITEM", kind, payload: item });
+        return item;
+      },
+      updateMasterItem: (kind, item) => dispatch({ type: "UPDATE_MASTER_ITEM", kind, payload: stamp(item) }),
+      deleteMasterItem: (kind, id) => dispatch({ type: "DELETE_MASTER_ITEM", kind, id }),
     }),
     [state, scopedProperties, scopedRooms, scopedRatePlans, roomCountFor, ratePlanCountFor, stamp, permissions, user]
   );

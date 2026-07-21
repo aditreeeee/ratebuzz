@@ -3,6 +3,9 @@ import { Search, SlidersHorizontal, X, ChevronRight, ChevronDown } from "lucide-
 import { useData } from "../../context/DataContext.jsx";
 import { Modal } from "./Modal.jsx";
 import { Checkbox } from "./Checkbox.jsx";
+import { FilterAccordionSection, CheckboxListFilter, FilterPanelFrame } from "./FilterSection.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { MEAL_PLANS } from "../../mocks/ratePlans.js";
 
 // Rate-Plans-specific hierarchical filter: Property -> Rooms. This is
 // deliberately a *separate* component from PropertyFilterPanel (used by
@@ -39,9 +42,16 @@ function PanelBody({
   setSelectedPropertyIds,
   selectedRoomIds,
   setSelectedRoomIds,
+  mealPlanFilter,
+  setMealPlanFilter,
 }) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState(() => new Set());
+  const [sectionsOpen, setSectionsOpen] = usePersistedState("ratePlans.filterPanel.expanded", {
+    properties: true,
+    mealPlan: false,
+  });
+  const toggleSectionOpen = (key) => setSectionsOpen((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const roomsByProperty = useMemo(() => {
     const map = new Map();
@@ -160,97 +170,128 @@ function PanelBody({
   const allSelected = properties.length > 0 && selectedPropertyIds.length === properties.length && selectedRoomIds.length === 0;
   const nothingSelected = selectedPropertyIds.length === 0 && selectedRoomIds.length === 0;
 
+  const roomName = (id) => rooms.find((r) => r.id === id)?.name || id;
+  const propertyName = (id) => properties.find((p) => p.id === id)?.name || id;
+
+  const chips = [
+    ...selectedPropertyIds.map((id) => ({
+      key: `p-${id}`,
+      label: propertyName(id),
+      onRemove: () => toggleProperty(id),
+    })),
+    ...selectedRoomIds.map((id) => ({
+      key: `r-${id}`,
+      label: roomName(id),
+      onRemove: () => setSelectedRoomIds(selectedRoomIds.filter((rid) => rid !== id)),
+    })),
+    ...mealPlanFilter.map((mp) => ({
+      key: `mp-${mp}`,
+      label: mp,
+      onRemove: () => setMealPlanFilter(mealPlanFilter.filter((v) => v !== mp)),
+    })),
+  ];
+
+  const resetAll = () => {
+    clearAll();
+    setMealPlanFilter([]);
+  };
+
   return (
-    <>
-      <div className="property-panel__header">
-        <span className="property-panel__count">
-          {selectedPropertyIds.length} propert{selectedPropertyIds.length === 1 ? "y" : "ies"}, {totalSelectedRooms} room{totalSelectedRooms === 1 ? "" : "s"} selected
-        </span>
-        <div className="property-panel__quick-actions">
-          <button type="button" className="property-panel__quick-btn" onClick={expandAll}>Expand All</button>
-          <span className="property-panel__quick-sep">·</span>
-          <button type="button" className="property-panel__quick-btn" onClick={collapseAll}>Collapse All</button>
+    <FilterPanelFrame chips={chips} onResetAll={resetAll}>
+      <FilterAccordionSection title="Properties" open={sectionsOpen.properties} onToggle={() => toggleSectionOpen("properties")}>
+        <div className="filter-card__subrow">
+          <span className="filter-card__subrow-meta">
+            {selectedPropertyIds.length} propert{selectedPropertyIds.length === 1 ? "y" : "ies"}, {totalSelectedRooms} room{totalSelectedRooms === 1 ? "" : "s"}
+          </span>
+          <div className="filter-card__subrow-actions">
+            <button type="button" className="filter-card__link" onClick={selectAll} disabled={allSelected}>Select All</button>
+            <span className="filter-card__link-sep">·</span>
+            <button type="button" className="filter-card__link" onClick={clearAll} disabled={nothingSelected}>Clear All</button>
+          </div>
         </div>
-      </div>
-      <div className="property-panel__header property-panel__header--secondary">
-        <div className="property-panel__quick-actions">
-          <button type="button" className="property-panel__quick-btn" onClick={selectAll} disabled={allSelected}>
-            Select All
-          </button>
-          <span className="property-panel__quick-sep">·</span>
-          <button type="button" className="property-panel__quick-btn" onClick={clearAll} disabled={nothingSelected}>
-            Clear All
-          </button>
+        <div className="filter-card__subrow">
+          <span className="filter-card__subrow-meta">Tree view</span>
+          <div className="filter-card__subrow-actions">
+            <button type="button" className="filter-card__link" onClick={expandAll}>Expand All</button>
+            <span className="filter-card__link-sep">·</span>
+            <button type="button" className="filter-card__link" onClick={collapseAll}>Collapse All</button>
+          </div>
         </div>
-      </div>
 
-      <div className="property-panel__search">
-        <Search size={14} strokeWidth={2} className="property-panel__search-icon" />
-        <input
-          className="property-panel__search-input"
-          placeholder="Search properties or rooms..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button type="button" className="property-panel__search-clear" onClick={() => setQuery("")} aria-label="Clear search">
-            <X size={13} strokeWidth={2} />
-          </button>
-        )}
-      </div>
+        <div className="filter-checklist">
+          <div className="filter-checklist__search">
+            <Search size={13} strokeWidth={2} className="filter-checklist__search-icon" />
+            <input
+              className="filter-checklist__search-input"
+              placeholder="Search properties or rooms..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button type="button" className="filter-checklist__search-clear" onClick={() => setQuery("")} aria-label="Clear search">
+                <X size={12} strokeWidth={2} />
+              </button>
+            )}
+          </div>
 
-      <div className="property-panel__list tree-panel__list">
-        {filteredProperties.length === 0 && <div className="property-panel__empty">No matches for "{query}".</div>}
-        {filteredProperties.map((p) => {
-          const state = propertyState(p.id);
-          const roomList = roomsByProperty.get(p.id) || [];
-          const isOpen = expanded.has(p.id);
-          const visibleRooms = q
-            ? roomList.filter((r) => String(r.name || "").toLowerCase().includes(q) || String(p.name || "").toLowerCase().includes(q))
-            : roomList;
+          <div className="filter-checklist__options tree-panel__list">
+          {filteredProperties.length === 0 && <div className="property-panel__empty">No matches for "{query}".</div>}
+          {filteredProperties.map((p) => {
+            const state = propertyState(p.id);
+            const roomList = roomsByProperty.get(p.id) || [];
+            const isOpen = expanded.has(p.id);
+            const visibleRooms = q
+              ? roomList.filter((r) => String(r.name || "").toLowerCase().includes(q) || String(p.name || "").toLowerCase().includes(q))
+              : roomList;
 
-          return (
-            <div key={p.id} className="tree-panel__node">
-              <div className={`tree-panel__row tree-panel__row--property ${state === "checked" ? "tree-panel__row--checked" : ""}`}>
-                <button
-                  type="button"
-                  className="tree-panel__chevron"
-                  onClick={() => toggleExpand(p.id)}
-                  aria-label={isOpen ? `Collapse ${p.name}` : `Expand ${p.name}`}
-                  disabled={roomList.length === 0}
-                >
-                  {roomList.length > 0 ? (isOpen ? <ChevronDown size={15} strokeWidth={2} /> : <ChevronRight size={15} strokeWidth={2} />) : <span className="tree-panel__chevron-spacer" />}
-                </button>
-                <Checkbox
-                  checked={state === "checked"}
-                  indeterminate={state === "indeterminate"}
-                  onChange={() => toggleProperty(p.id)}
-                  label={`Select ${p.name}`}
-                />
-                <span className="tree-panel__label" onClick={() => toggleExpand(p.id)}>
-                  {p.name} <span className="tree-panel__sub">({roomList.length} Room{roomList.length === 1 ? "" : "s"})</span>
-                </span>
-              </div>
-
-              {isOpen && (
-                <div className="tree-panel__children">
-                  {visibleRooms.length === 0 && <div className="property-panel__empty">No rooms.</div>}
-                  {visibleRooms.map((r) => {
-                    const checked = state === "checked" || selectedRoomIds.includes(r.id);
-                    return (
-                      <div key={r.id} className={`tree-panel__row tree-panel__row--room ${checked ? "tree-panel__row--checked" : ""}`}>
-                        <Checkbox checked={checked} onChange={() => toggleRoom(r)} label={`Select ${r.name}`} />
-                        <span className="tree-panel__label">{r.name}</span>
-                      </div>
-                    );
-                  })}
+            return (
+              <div key={p.id} className="tree-panel__node">
+                <div className={`tree-panel__row tree-panel__row--property ${state === "checked" ? "tree-panel__row--checked" : ""}`}>
+                  <button
+                    type="button"
+                    className="tree-panel__chevron"
+                    onClick={() => toggleExpand(p.id)}
+                    aria-label={isOpen ? `Collapse ${p.name}` : `Expand ${p.name}`}
+                    disabled={roomList.length === 0}
+                  >
+                    {roomList.length > 0 ? (isOpen ? <ChevronDown size={15} strokeWidth={2} /> : <ChevronRight size={15} strokeWidth={2} />) : <span className="tree-panel__chevron-spacer" />}
+                  </button>
+                  <Checkbox
+                    checked={state === "checked"}
+                    indeterminate={state === "indeterminate"}
+                    onChange={() => toggleProperty(p.id)}
+                    label={`Select ${p.name}`}
+                  />
+                  <span className="tree-panel__label" onClick={() => toggleExpand(p.id)}>
+                    {p.name} <span className="tree-panel__sub">({roomList.length} Room{roomList.length === 1 ? "" : "s"})</span>
+                  </span>
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </>
+
+                {isOpen && (
+                  <div className="tree-panel__children">
+                    {visibleRooms.length === 0 && <div className="property-panel__empty">No rooms.</div>}
+                    {visibleRooms.map((r) => {
+                      const checked = state === "checked" || selectedRoomIds.includes(r.id);
+                      return (
+                        <div key={r.id} className={`tree-panel__row tree-panel__row--room ${checked ? "tree-panel__row--checked" : ""}`}>
+                          <Checkbox checked={checked} onChange={() => toggleRoom(r)} label={`Select ${r.name}`} />
+                          <span className="tree-panel__label">{r.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          </div>
+        </div>
+      </FilterAccordionSection>
+
+      <FilterAccordionSection title="Meal Plan" open={sectionsOpen.mealPlan} onToggle={() => toggleSectionOpen("mealPlan")}>
+        <CheckboxListFilter options={MEAL_PLANS} selected={mealPlanFilter} onChange={setMealPlanFilter} />
+      </FilterAccordionSection>
+    </FilterPanelFrame>
   );
 }
 
@@ -259,16 +300,12 @@ export function PropertyRoomTreeFilter({
   setSelectedPropertyIds,
   selectedRoomIds,
   setSelectedRoomIds,
+  mealPlanFilter,
+  setMealPlanFilter,
 }) {
   const data = useData();
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const totalSelectedRooms = useSelectedRooms({
-    properties: data.properties,
-    rooms: data.rooms,
-    selectedPropertyIds,
-    selectedRoomIds,
-  }).length;
+  const totalActive = selectedPropertyIds.length + selectedRoomIds.length + mealPlanFilter.length;
 
   const bodyProps = {
     properties: data.properties,
@@ -277,6 +314,8 @@ export function PropertyRoomTreeFilter({
     setSelectedPropertyIds,
     selectedRoomIds,
     setSelectedRoomIds,
+    mealPlanFilter,
+    setMealPlanFilter,
   };
 
   return (
@@ -287,13 +326,11 @@ export function PropertyRoomTreeFilter({
 
       <button type="button" className="property-panel__drawer-trigger" onClick={() => setDrawerOpen(true)}>
         <SlidersHorizontal size={15} strokeWidth={2} />
-        <span>Filter Properties / Rooms</span>
-        {(selectedPropertyIds.length > 0 || totalSelectedRooms > 0) && (
-          <span className="property-panel__drawer-badge tabular">{selectedPropertyIds.length + selectedRoomIds.length}</span>
-        )}
+        <span>Filters</span>
+        {totalActive > 0 && <span className="property-panel__drawer-badge tabular">{totalActive}</span>}
       </button>
 
-      <Modal open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Filter Properties / Rooms" size="sm">
+      <Modal open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Filters" size="sm">
         <div className="property-panel property-panel--drawer tree-panel">
           <PanelBody {...bodyProps} />
         </div>

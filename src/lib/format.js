@@ -22,7 +22,9 @@ export function usePaginatedSortedFiltered({ data, search, searchFields, filters
   }
 
   Object.entries(filters || {}).forEach(([key, val]) => {
-    if (val !== "" && val !== undefined && val !== null) {
+    if (Array.isArray(val)) {
+      if (val.length > 0) result = result.filter((item) => val.includes(item[key]));
+    } else if (val !== "" && val !== undefined && val !== null) {
       result = result.filter((item) => item[key] === val);
     }
   });

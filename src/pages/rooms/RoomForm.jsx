@@ -1,37 +1,39 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Sparkles, LayoutGrid, Sliders, MapPin, Sofa, UsersRound, Heart,
-  Check, AlertCircle, StickyNote, BedDouble, Info, RotateCcw,
+  Sparkles, LayoutGrid, Sliders, Sofa, UsersRound, Heart,
+  Check, AlertCircle, StickyNote, BedDouble, Info, RotateCcw, Ruler,
+  Pencil, Trash2, Save, Settings2, X,
 } from "lucide-react";
 import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
+import { MasterDataManager } from "../../components/ui/MasterDataManager.jsx";
 import { ROOM_STATUSES } from "../../mocks/rooms.js";
-import { ROOM_TEMPLATES } from "../../mocks/roomTemplates.js";
 import {
-  OCCUPANCY_TYPES, BED_CONFIGURATIONS, ROOM_TYPES, ROOM_LAYOUTS,
-  ROOM_OPTIONS, ACCESSIBILITY_FEATURES, ROOM_VIEWS, ROOM_POSITIONS,
-  ROOM_AMENITIES, BEST_SUITED_FOR, SUITE_FEATURES, isSuiteRoomType,
+  OCCUPANCY_TYPES, BED_CONFIGURATIONS, ROOM_LAYOUTS,
+  ROOM_OPTIONS, BEST_SUITED_FOR, SUITE_FEATURES, isSuiteRoomType,
 } from "../../mocks/roomClassification.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
+import { useData } from "../../context/DataContext.jsx";
+import { useToast } from "../../context/ToastContext.jsx";
 
 const EMPTY = {
   name: "", description: "", propertyId: "", status: "Active",
   occupancyType: OCCUPANCY_TYPES[0], bedConfiguration: BED_CONFIGURATIONS[0], numberOfBeds: 1, extraBedAllowed: false,
-  roomType: ROOM_TYPES[0], layout: ROOM_LAYOUTS[0],
-  roomOptions: [], accessibilityFeatures: [],
-  view: ROOM_VIEWS[0], roomPosition: ROOM_POSITIONS[0],
+  roomType: "", layout: ROOM_LAYOUTS[0],
+  roomOptions: [],
   amenities: [],
+  squareFeet: "",
   maxAdults: 2, maxChildren: 0, maxInfants: 0, maxOccupancy: 2, baseOccupancy: 2,
   extraAdultAllowed: false, extraChildAllowed: false,
   bestSuitedFor: [],
   suiteFeatures: [],
 };
 
-function validate(form) {
+function validate(form, { skipProperty = false } = {}) {
   const errors = {};
-  if (!form.propertyId) errors.propertyId = "Property is required.";
+  if (!skipProperty && !form.propertyId) errors.propertyId = "Property is required.";
   if (!form.name || !form.name.trim()) errors.name = "Room name is required.";
   for (const [key, label] of [
     ["maxAdults", "Max adults"],
@@ -56,15 +58,13 @@ function validate(form) {
 
 // Maps each section to the field keys it owns, for completion/error/dirty tracking.
 const SECTION_FIELDS = {
-  overview: ["propertyId", "name", "description", "status"],
+  overview: ["propertyId", "name", "description", "status", "squareFeet"],
   classification: ["roomType"],
   occupancy: ["maxAdults", "maxChildren", "maxInfants", "maxOccupancy", "baseOccupancy", "extraAdultAllowed", "extraChildAllowed"],
   bedConfig: ["occupancyType", "bedConfiguration", "numberOfBeds", "extraBedAllowed"],
   layout: ["layout"],
   features: ["roomOptions"],
   amenities: ["amenities"],
-  viewLocation: ["view", "roomPosition"],
-  accessibility: ["accessibilityFeatures"],
   suited: ["bestSuitedFor", "suiteFeatures"],
   notes: [],
 };
@@ -79,29 +79,42 @@ function buildSections(form) {
     { key: "layout", label: "Layout", icon: LayoutGrid },
     { key: "features", label: "Features", icon: Sliders, badge: form.roomOptions.length || null },
     { key: "amenities", label: "Amenities", icon: Sofa, badge: form.amenities.length || null },
-    { key: "viewLocation", label: "View & Location", icon: MapPin },
-    { key: "accessibility", label: "Accessibility", icon: UsersRound, badge: form.accessibilityFeatures.length || null },
     { key: "suited", label: "Best Suited For", icon: Heart, badge: (form.bestSuitedFor.length + (showSuite ? form.suiteFeatures.length : 0)) || null },
     { key: "notes", label: "Notes", icon: StickyNote },
   ];
 }
 
 export function RoomForm({ open, onClose, onSubmit, initial, properties = [], scopePropertyId }) {
+  const data = useData();
+  const toast = useToast();
+  const roomTypeMaster = data.masters.roomTypes;
+  const amenitiesMaster = data.masters.amenities;
+  const templatesMaster = data.masters.roomTemplates;
+
   const [form, setForm] = useState(initial || EMPTY);
   const [errors, setErrors] = useState({});
   const [active, setActive] = useState("overview");
   const [notes, setNotes] = useState("");
+  const [manageOpen, setManageOpen] = useState(null); // "roomTypes" | "amenities" | null
+  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
   const baselineRef = useRef(EMPTY);
+
+  // Creating (not editing) with more than one property selected in the left
+  // filter and no single scoped property means the room should be cloned
+  // into every selected property on submit — see RoomsPage.handleSubmit.
+  const isEditing = !!initial;
+  const multiPropertyMode = !isEditing && !scopePropertyId && properties.length > 1;
 
   useEffect(() => {
     const baseline = initial
       ? { ...EMPTY, ...initial }
-      : { ...EMPTY, propertyId: scopePropertyId || "" };
+      : { ...EMPTY, propertyId: scopePropertyId || "", roomType: roomTypeMaster[0]?.name || "" };
     setForm(baseline);
     setErrors({});
     setActive("overview");
     setNotes("");
     baselineRef.current = baseline;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, open, scopePropertyId]);
 
   const scopedProperty = properties.find((p) => p.id === form.propertyId);
@@ -130,14 +143,14 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
     if (!fields || fields.length === 0) return true;
     const relevantErrors = fields.some((f) => errors[f]);
     if (relevantErrors) return false;
-    if (key === "overview") return !!form.propertyId && !!form.name.trim();
+    if (key === "overview") return (multiPropertyMode || !!form.propertyId) && !!form.name.trim();
     return true;
   };
 
   const sectionHasError = (key) => (SECTION_FIELDS[key] || []).some((f) => errors[f]);
 
   const runValidation = () => {
-    const validationErrors = validate(form);
+    const validationErrors = validate(form, { skipProperty: multiPropertyMode });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
       const firstErrorSection = sections.find((s) => (SECTION_FIELDS[s.key] || []).some((f) => validationErrors[f]));
@@ -220,16 +233,19 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
             <div className="template-picker">
               <div className="template-picker__label"><Sparkles size={13} strokeWidth={2} /> Quick-fill from a template</div>
               <div className="template-picker__list">
-                {ROOM_TEMPLATES.map((t) => (
+                {templatesMaster.map((t) => (
                   <button
                     type="button"
-                    key={t.key}
+                    key={t.id}
                     className="template-picker__item"
                     onClick={() => setForm((f) => ({ ...f, ...t.values }))}
                   >
-                    {t.label}
+                    {t.name}
                   </button>
                 ))}
+                <button type="button" className="template-picker__manage" onClick={() => setTemplateManagerOpen(true)}>
+                  <Settings2 size={13} strokeWidth={2} /> Manage Templates
+                </button>
               </div>
             </div>
           )}
@@ -238,9 +254,11 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
             {active === "overview" && (
               <div className="form-grid">
                 <div className="form-grid__full">
-                  <Field label="Property" required id="r-property" error={errors.propertyId}>
+                  <Field label="Property" required={!multiPropertyMode} id="r-property" error={errors.propertyId}>
                     {scopePropertyId ? (
                       <Input value={scopedProperty?.name || scopePropertyId} disabled />
+                    ) : multiPropertyMode ? (
+                      <Input value={`${properties.length} properties selected`} disabled />
                     ) : (
                       <Select
                         id="r-property"
@@ -255,6 +273,12 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
                       />
                     )}
                   </Field>
+                  {multiPropertyMode && (
+                    <p className="room-form__clone-note">
+                      <Info size={13} strokeWidth={2} />
+                      This room will be created for all selected properties. A separate copy will be generated for each property.
+                    </p>
+                  )}
                 </div>
                 <div className="form-grid__full">
                   <Field label="Room Name" required id="r-name" error={errors.name} modified={dirtyFields.has("name")}>
@@ -269,17 +293,22 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
                 <Field label="Status" required id="r-status" modified={dirtyFields.has("status")}>
                   <Select id="r-status" options={ROOM_STATUSES} value={form.status} onChange={set("status")} />
                 </Field>
+                <Field label="Square Feet / Metres" id="r-sqft" hint="Approximate room area." modified={dirtyFields.has("squareFeet")}>
+                  <Input id="r-sqft" icon={Ruler} type="number" min="0" tabular value={form.squareFeet} onChange={setNum("squareFeet")} placeholder="e.g. 350" />
+                </Field>
               </div>
             )}
 
             {active === "classification" && (
               <FeatureChipGrid
                 label="Room Type"
-                options={ROOM_TYPES}
+                options={roomTypeMaster.map((t) => t.name)}
                 value={form.roomType}
                 onChange={(v) => setForm((f) => ({ ...f, roomType: v }))}
                 multiple={false}
                 resetValue={baselineRef.current.roomType}
+                onManage={() => setManageOpen("roomTypes")}
+                manageLabel="Manage Room Types"
               />
             )}
 
@@ -387,43 +416,12 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
             {active === "amenities" && (
               <FeatureChipGrid
                 label="Room Amenities"
-                options={ROOM_AMENITIES}
+                options={amenitiesMaster.map((a) => a.name)}
                 value={form.amenities}
                 onChange={setList("amenities")}
                 resetValue={baselineRef.current.amenities}
-              />
-            )}
-
-            {active === "viewLocation" && (
-              <>
-                <FeatureChipGrid
-                  label="Room View"
-                  options={ROOM_VIEWS}
-                  value={form.view}
-                  onChange={(v) => setForm((f) => ({ ...f, view: v }))}
-                  multiple={false}
-                  resetValue={baselineRef.current.view}
-                />
-                <div style={{ marginTop: "var(--space-6)" }}>
-                  <FeatureChipGrid
-                    label="Room Position"
-                    options={ROOM_POSITIONS}
-                    value={form.roomPosition}
-                    onChange={(v) => setForm((f) => ({ ...f, roomPosition: v }))}
-                    multiple={false}
-                    resetValue={baselineRef.current.roomPosition}
-                  />
-                </div>
-              </>
-            )}
-
-            {active === "accessibility" && (
-              <FeatureChipGrid
-                label="Accessibility Features"
-                options={ACCESSIBILITY_FEATURES}
-                value={form.accessibilityFeatures}
-                onChange={setList("accessibilityFeatures")}
-                resetValue={baselineRef.current.accessibilityFeatures}
+                onManage={() => setManageOpen("amenities")}
+                manageLabel="Manage Amenities"
               />
             )}
 
@@ -475,6 +473,100 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
       confirmLabel="Discard Changes"
       danger
     />
+    <MasterDataManager open={manageOpen === "roomTypes"} onClose={() => setManageOpen(null)} kind="roomTypes" label="Room Types" />
+    <MasterDataManager open={manageOpen === "amenities"} onClose={() => setManageOpen(null)} kind="amenities" label="Amenities" />
+    <RoomTemplateManager
+      open={templateManagerOpen}
+      onClose={() => setTemplateManagerOpen(false)}
+      currentForm={form}
+    />
+    </>
+  );
+}
+
+// Room Template master-data manager. Kept alongside RoomForm (rather than in
+// MasterDataManager) because template records carry a full room field-set
+// under `values`, not just a name — "Edit" here means renaming the template;
+// the room fields it applies come from "Save Current Form as Template",
+// which snapshots whatever is in the form right now.
+function RoomTemplateManager({ open, onClose, currentForm }) {
+  const data = useData();
+  const toast = useToast();
+  const templates = data.masters.roomTemplates;
+
+  const [editingId, setEditingId] = useState(null);
+  const [draftName, setDraftName] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [newName, setNewName] = useState("");
+
+  const startEdit = (t) => { setEditingId(t.id); setDraftName(t.name); };
+  const cancelEdit = () => { setEditingId(null); setDraftName(""); };
+  const saveEdit = () => {
+    if (!draftName.trim()) return;
+    const t = templates.find((tt) => tt.id === editingId);
+    data.updateMasterItem("roomTemplates", { ...t, name: draftName.trim() });
+    toast.success("Template updated.");
+    cancelEdit();
+  };
+
+  const confirmDelete = () => {
+    data.deleteMasterItem("roomTemplates", confirmDeleteId);
+    toast.success("Template removed.");
+    setConfirmDeleteId(null);
+  };
+
+  const saveCurrentAsTemplate = () => {
+    if (!newName.trim()) return;
+    const { propertyId, ...values } = currentForm;
+    data.addMasterItem("roomTemplates", { name: newName.trim(), values });
+    toast.success(`Saved as "${newName.trim()}" template.`);
+    setNewName("");
+  };
+
+  return (
+    <>
+      <Modal open={open} onClose={onClose} title="Manage Room Templates" size="sm">
+        <div className="master-manager">
+          <p className="master-manager__hint">
+            Templates quick-fill the room form. Save the fields currently entered as a new reusable template.
+          </p>
+          <div className="master-manager__list">
+            {templates.map((t) => (
+              <div key={t.id} className="master-manager__row">
+                {editingId === t.id ? (
+                  <>
+                    <Input value={draftName} onChange={(e) => setDraftName(e.target.value)} autoFocus onKeyDown={(e) => e.key === "Enter" && saveEdit()} />
+                    <button type="button" className="master-manager__icon-btn" onClick={saveEdit} aria-label="Save"><Check size={15} strokeWidth={2.5} /></button>
+                    <button type="button" className="master-manager__icon-btn" onClick={cancelEdit} aria-label="Cancel"><X size={15} strokeWidth={2} /></button>
+                  </>
+                ) : (
+                  <>
+                    <span className="master-manager__name">{t.name}</span>
+                    <button type="button" className="master-manager__icon-btn" onClick={() => startEdit(t)} aria-label={`Rename ${t.name}`}><Pencil size={14} strokeWidth={2} /></button>
+                    <button type="button" className="master-manager__icon-btn master-manager__icon-btn--danger" onClick={() => setConfirmDeleteId(t.id)} aria-label={`Delete ${t.name}`}><Trash2 size={14} strokeWidth={2} /></button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="master-manager__row">
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New template name..." onKeyDown={(e) => e.key === "Enter" && saveCurrentAsTemplate()} />
+            <button type="button" className="master-manager__icon-btn" onClick={saveCurrentAsTemplate} aria-label="Save current form as template"><Save size={14} strokeWidth={2} /></button>
+          </div>
+          <p className="master-manager__hint">Save Current Form as Template captures every field currently entered (name, type, occupancy, amenities, etc.) except the property.</p>
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={confirmDelete}
+        title="Delete Template"
+        message="This template will no longer appear in Quick-fill. Rooms already created from it are unaffected."
+        confirmLabel="Delete"
+        danger
+      />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, BedDouble, Pencil, Copy, Trash2, Users, RotateCcw, Upload, Archive, Building2 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
@@ -6,7 +6,6 @@ import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
 import { Pagination } from "../../components/ui/Pagination.jsx";
 import { SearchBar } from "../../components/ui/SearchBar.jsx";
-import { Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { StatusBadge } from "../../components/ui/Badge.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
@@ -26,7 +25,6 @@ import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
 import { usePaginatedSortedFiltered } from "../../lib/format.js";
 import { ROOM_STATUSES } from "../../mocks/rooms.js";
-import { ROOM_TYPES } from "../../mocks/roomClassification.js";
 import { RoomForm } from "./RoomForm.jsx";
 
 const PAGE_SIZE = 10;
@@ -55,8 +53,8 @@ export function RoomsPage() {
   const permissions = usePermissions();
   const { selectedPropertyIds } = usePropertyContext();
   const [search, setSearch] = useState("");
-  const [occupancyFilter, setOccupancyFilter] = useState("");
-  const [roomTypeFilter, setRoomTypeFilter] = useState("");
+  const [occupancyFilter, setOccupancyFilter] = usePersistedState("rooms.occupancyFilter", []);
+  const [roomTypeFilter, setRoomTypeFilter] = usePersistedState("rooms.roomTypeFilter", []);
   const [viewMode, setViewMode] = useState("active");
   const [sortKey, setSortKey] = usePersistedState("rooms.sortKey", "name");
   const [sortDir, setSortDir] = usePersistedState("rooms.sortDir", "asc");
@@ -88,11 +86,18 @@ export function RoomsPage() {
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const filtersActive = search || occupancyFilter || roomTypeFilter;
+  const filtersActive = Boolean(search) || occupancyFilter.length > 0 || roomTypeFilter.length > 0;
   const resetFilters = () => {
-    setSearch(""); setOccupancyFilter(""); setRoomTypeFilter("");
+    setSearch(""); setOccupancyFilter([]); setRoomTypeFilter([]);
     setPage(1);
   };
+
+  // Any change to the panel's filter selections (property scope, room type,
+  // occupancy) or the search box should snap back to page 1.
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropertyIds, occupancyFilter, roomTypeFilter, search, viewMode]);
 
   const { pageData, total } = useMemo(
     () =>
@@ -101,7 +106,7 @@ export function RoomsPage() {
         search,
         searchFields: ["id", "name", "roomType", "bedConfiguration", "view"],
         filters: {
-          maxOccupancy: occupancyFilter ? Number(occupancyFilter) : "",
+          maxOccupancy: occupancyFilter.map(Number),
           roomType: roomTypeFilter,
         },
         sortKey,
@@ -132,6 +137,13 @@ export function RoomsPage() {
     if (editing) {
       data.updateRoom({ ...editing, ...form });
       toast.success(`${form.name} updated.`);
+    } else if (!form.propertyId && selectedPropertyIds.length > 1) {
+      // Multi-property create: RoomForm leaves propertyId empty as the signal
+      // that this submission should be cloned into every selected property.
+      // Each clone is an independent room record from this point on — later
+      // edits to one never touch the others.
+      const created = data.addRooms(selectedPropertyIds.map((propertyId) => ({ ...form, propertyId })));
+      toast.success(`${form.name} created in ${created.length} properties.`);
     } else {
       const created = data.addRoom(form);
       toast.success(`${created.name} created as ${created.id}.`);
@@ -211,7 +223,13 @@ export function RoomsPage() {
       <Topbar title="Rooms" subtitle="Rooms are managed within their parent property." hidePropertySelector />
 
       <div className="property-scoped-layout">
-        <PropertyFilterPanel getCount={roomCountForProperty} />
+        <PropertyFilterPanel
+          getCount={roomCountForProperty}
+          roomTypeFilter={roomTypeFilter}
+          setRoomTypeFilter={setRoomTypeFilter}
+          occupancyFilter={occupancyFilter}
+          setOccupancyFilter={setOccupancyFilter}
+        />
 
         <div className="property-scoped-layout__content">
           {!hasPropertySelection ? (
@@ -232,8 +250,6 @@ export function RoomsPage() {
         <div style={{ padding: "20px 20px 0" }}>
           <div className="page-toolbar">
             <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search rooms..." />
-            <Select options={["1", "2", "3", "4", "5", "6"]} placeholder="Occupancy" value={occupancyFilter} onChange={(e) => { setOccupancyFilter(e.target.value); setPage(1); }} style={{ maxWidth: 130 }} />
-            <Select options={ROOM_TYPES} placeholder="Room Type" value={roomTypeFilter} onChange={(e) => { setRoomTypeFilter(e.target.value); setPage(1); }} style={{ maxWidth: 160 }} />
             {filtersActive && (
               <button className="btn btn--ghost btn--sm" onClick={resetFilters}>
                 <RotateCcw size={13} strokeWidth={2} /> Reset

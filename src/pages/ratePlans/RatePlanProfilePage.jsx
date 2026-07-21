@@ -280,7 +280,16 @@ export function RatePlanProfilePage() {
 
       {active === "cancellation" && (
         <Card>
-          <div className="detail-field"><span>Cancellation Policy</span><strong>{ratePlan.cancellationPolicy}</strong></div>
+          <div className="detail-grid">
+            <div className="detail-field"><span>Cancellation Policy</span><strong>{ratePlan.cancellationPolicy}</strong></div>
+            <div className="detail-field"><span>Partial Refund</span><strong>{ratePlan.partialRefundAllowed ? "Yes" : "No"}</strong></div>
+            {ratePlan.partialRefundAllowed && (
+              <>
+                <div className="detail-field"><span>Refund Percentage</span><strong className="tabular">{ratePlan.refundPercent}%</strong></div>
+                <div className="detail-field"><span>Refund Until</span><strong className="tabular">{ratePlan.refundUntilValue} {ratePlan.refundUntilUnit} before check-in</strong></div>
+              </>
+            )}
+          </div>
         </Card>
       )}
 

@@ -17,9 +17,12 @@ import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 // Rate Plan Profile page's Pricing Periods tab. Keeping the key in EMPTY
 // just ensures baseline spreading ({...EMPTY, ...initial}) always preserves
 // whatever periods already exist through an edit/submit round-trip.
+const REFUND_UNTIL_UNITS = ["Hours", "Days"];
+
 const EMPTY = {
   name: "", mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0],
   status: "Draft", roomId: "", taxInclusive: false, taxPercent: 0, pricingPeriods: [],
+  partialRefundAllowed: false, refundPercent: 50, refundUntilValue: 24, refundUntilUnit: REFUND_UNTIL_UNITS[0],
 };
 
 function validate(form) {
@@ -31,13 +34,25 @@ function validate(form) {
   } else if (Number(form.taxPercent) < 0) {
     errors.taxPercent = "Tax percent cannot be negative.";
   }
+  if (form.partialRefundAllowed) {
+    if (form.refundPercent === "" || form.refundPercent === null || Number.isNaN(Number(form.refundPercent))) {
+      errors.refundPercent = "Refund percentage must be a number.";
+    } else if (Number(form.refundPercent) < 0 || Number(form.refundPercent) > 100) {
+      errors.refundPercent = "Refund percentage must be between 0 and 100.";
+    }
+    if (form.refundUntilValue === "" || form.refundUntilValue === null || Number.isNaN(Number(form.refundUntilValue))) {
+      errors.refundUntilValue = "Refund window must be a number.";
+    } else if (Number(form.refundUntilValue) < 0) {
+      errors.refundUntilValue = "Refund window cannot be negative.";
+    }
+  }
   return errors;
 }
 
 const SECTION_FIELDS = {
   overview: ["roomId", "name", "status"],
   mealPlan: ["mealPlan"],
-  cancellation: ["cancellationPolicy"],
+  cancellation: ["cancellationPolicy", "partialRefundAllowed", "refundPercent", "refundUntilValue", "refundUntilUnit"],
   taxes: ["taxInclusive", "taxPercent"],
 };
 
@@ -97,7 +112,12 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
       if (firstErrorSection) setActive(firstErrorSection.key);
       return null;
     }
-    return { ...form, taxPercent: Number(form.taxPercent) };
+    return {
+      ...form,
+      taxPercent: Number(form.taxPercent),
+      refundPercent: form.partialRefundAllowed ? Number(form.refundPercent) : form.refundPercent,
+      refundUntilValue: form.partialRefundAllowed ? Number(form.refundUntilValue) : form.refundUntilValue,
+    };
   };
 
   const handleSubmit = (e) => {
@@ -245,15 +265,42 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
             )}
 
             {active === "cancellation" && (
-              <FeatureChipGrid
-                label="Cancellation Policy"
-                options={CANCELLATION_POLICIES}
-                value={form.cancellationPolicy}
-                onChange={setField("cancellationPolicy")}
-                multiple={false}
-                getIcon={ratePlanFeatureIcon}
-                resetValue={baselineRef.current.cancellationPolicy}
-              />
+              <>
+                <FeatureChipGrid
+                  label="Cancellation Policy"
+                  options={CANCELLATION_POLICIES}
+                  value={form.cancellationPolicy}
+                  onChange={setField("cancellationPolicy")}
+                  multiple={false}
+                  getIcon={ratePlanFeatureIcon}
+                  resetValue={baselineRef.current.cancellationPolicy}
+                />
+                <div style={{ marginTop: "var(--space-6)" }}>
+                  <FeatureChipGrid
+                    label="Partial Refund"
+                    options={["No", "Yes"]}
+                    value={form.partialRefundAllowed ? "Yes" : "No"}
+                    onChange={(v) => setForm((f) => ({ ...f, partialRefundAllowed: v === "Yes" }))}
+                    multiple={false}
+                    getIcon={ratePlanFeatureIcon}
+                    resetValue={baselineRef.current.partialRefundAllowed ? "Yes" : "No"}
+                    hint="Whether guests can receive a partial refund when cancelling within the policy window."
+                  />
+                </div>
+                {form.partialRefundAllowed && (
+                  <div className="form-grid" style={{ marginTop: "var(--space-6)" }}>
+                    <Field label="Refund Percentage (%)" required id="rp-refund-percent" error={errors.refundPercent} modified={dirtyFields.has("refundPercent")}>
+                      <Input id="rp-refund-percent" type="number" min="0" max="100" step="1" tabular value={form.refundPercent} onChange={setNum("refundPercent")} required />
+                    </Field>
+                    <Field label="Refund Until" required id="rp-refund-until" error={errors.refundUntilValue} modified={dirtyFields.has("refundUntilValue")}>
+                      <Input id="rp-refund-until" type="number" min="0" step="1" tabular value={form.refundUntilValue} onChange={setNum("refundUntilValue")} required />
+                    </Field>
+                    <Field label="Unit" id="rp-refund-unit" modified={dirtyFields.has("refundUntilUnit")}>
+                      <Select id="rp-refund-unit" options={REFUND_UNTIL_UNITS} value={form.refundUntilUnit} onChange={set("refundUntilUnit")} />
+                    </Field>
+                  </div>
+                )}
+              </>
             )}
 
             {active === "taxes" && (

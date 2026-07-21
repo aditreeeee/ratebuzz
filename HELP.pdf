@@ -1,0 +1,158 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 4003 >>
+stream
+BT /F2 20 Tf 56 750 Td (RateBuzz  -  Help Guide) Tj ET
+BT /F1 10.5 Tf 56 724 Td (Rate Intelligence Platform | Frontend Reference & Integration Roadmap) Tj ET
+BT /F2 13.5 Tf 56 695.5 Td (1. Project Structure) Tj ET
+BT /F1 10.5 Tf 56 675.5 Td (RateBuzz is a frontend-only React application \(React 18 + react-router-dom\) that renders) Tj ET
+BT /F1 10.5 Tf 56 661 Td (directly in-browser via a service worker performing an in-request Babel transform - there is no) Tj ET
+BT /F1 10.5 Tf 56 646.5 Td (npm install and no bundler build step.) Tj ET
+BT /F1 10.5 Tf 66 632 Td (- src/pages/{properties,rooms,ratePlans}/ - List page, Form, Detail/Profile view per entity.) Tj ET
+BT /F1 10.5 Tf 66 617.5 Td (- src/pages/settings/ - General, Defaults, Appearance, Integrations.) Tj ET
+BT /F1 10.5 Tf 66 603 Td (- src/components/layout/ - Sidebar, Topbar, PortalLayout, AuthGuard.) Tj ET
+BT /F1 10.5 Tf 66 588.5 Td (- src/components/ui/ - shared design-system components \(Table, Modal, Badge, FeatureChipGrid,) Tj ET
+BT /F1 10.5 Tf 66 574 Td (MasterDataManager, etc\).) Tj ET
+BT /F1 10.5 Tf 66 559.5 Td (- src/context/ - AuthContext \(mock login/roles\), DataContext \(CRUD + scoping + master data\),) Tj ET
+BT /F1 10.5 Tf 66 545 Td (PropertyContext, ToastContext, AppearanceContext.) Tj ET
+BT /F1 10.5 Tf 66 530.5 Td (- src/lib/ - permissions, formatting, pricing-period, and export helpers.) Tj ET
+BT /F1 10.5 Tf 66 516 Td (- src/mocks/ - seed data for properties, rooms, rate plans, and master tables \(room types,) Tj ET
+BT /F1 10.5 Tf 66 501.5 Td (amenities, room templates\).) Tj ET
+BT /F1 10.5 Tf 66 487 Td (- src/hooks/ - usePermissions, useSelection, useUnsavedChanges, usePersistedState,) Tj ET
+BT /F1 10.5 Tf 66 472.5 Td (useCursorGlow.) Tj ET
+BT /F1 10.5 Tf 66 458 Td (- src/styles/ - plain CSS design system \(tokens.css for design tokens, remainder split by) Tj ET
+BT /F1 10.5 Tf 66 443.5 Td (concern\).) Tj ET
+BT /F2 13.5 Tf 56 415 Td (2. Installation) Tj ET
+BT /F1 10.5 Tf 56 395 Td (No package installation is required. The project uses import maps \(declared in index.html\) to) Tj ET
+BT /F1 10.5 Tf 56 380.5 Td (load React, ReactDOM, and react-router-dom from a CDN at runtime, and a service worker \(sw.js\)) Tj ET
+BT /F1 10.5 Tf 56 366 Td (transforms JSX on the fly with Babel.) Tj ET
+BT /F1 10.5 Tf 66 351.5 Td (- Clone or copy the ratebuzz/ folder.) Tj ET
+BT /F1 10.5 Tf 66 337 Td (- Windows PowerShell prerequisite: if serve.ps1 reports "not digitally signed", run:) Tj ET
+BT /F1 10.5 Tf 66 322.5 Td (Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass \(session-only, not machine-wide\).) Tj ET
+BT /F2 13.5 Tf 56 294 Td (3. Running the Frontend) Tj ET
+BT /F1 10.5 Tf 56 274 Td (Two supported ways to start the static file server on http://localhost:5173/:) Tj ET
+BT /F1 10.5 Tf 66 259.5 Td (- Double-click start.bat \(applies the execution-policy bypass automatically\), or) Tj ET
+BT /F1 10.5 Tf 66 245 Td (- Run manually: powershell -ExecutionPolicy Bypass -File serve.ps1) Tj ET
+BT /F1 10.5 Tf 56 230.5 Td (Then sign in from the login screen using one of the two demo accounts described in Section 7) Tj ET
+BT /F1 10.5 Tf 56 216 Td (\(User Roles\), or use the Quick Demo Access buttons.) Tj ET
+BT /F2 13.5 Tf 56 187.5 Td (4. Folder Organization) Tj ET
+BT /F1 10.5 Tf 56 167.5 Td (The codebase is organized by feature/domain rather than by file type, so each entity) Tj ET
+BT /F1 10.5 Tf 56 153 Td (\(Properties, Rooms, Rate Plans\) is self-contained under src/pages/<entity>/ with its list page,) Tj ET
+BT /F1 10.5 Tf 56 138.5 Td (form, and profile page together. Shared, reusable pieces \(buttons, tables, modals, filter) Tj ET
+BT /F1 10.5 Tf 56 124 Td (panels, master-data managers\) live under src/components/ui/ and are imported wherever needed.) Tj ET
+BT /F1 10.5 Tf 56 109.5 Td (This mirrors how an MVC project typically separates Controllers/Views by feature area, which) Tj ET
+BT /F1 10.5 Tf 56 95 Td (keeps the eventual migration mechanical rather than a redesign.) Tj ET
+endstream
+endobj
+4 0 obj
+<< /Length 4403 >>
+stream
+BT /F2 13.5 Tf 56 744 Td (5. Future .NET Integration) Tj ET
+BT /F1 10.5 Tf 56 724 Td (Target backend: .NET Core 8.0 \(C#\), Framework: ASP.NET MVC. The frontend has been deliberately) Tj ET
+BT /F1 10.5 Tf 56 709.5 Td (kept framework-agnostic at the markup level:) Tj ET
+BT /F1 10.5 Tf 66 695 Td (- Views remain uncompiled JSX served directly by a service worker - no bundler-specific output,) Tj ET
+BT /F1 10.5 Tf 66 680.5 Td (no hashed asset names, no build artifacts to reconcile against Razor Views. Each .jsx page can) Tj ET
+BT /F1 10.5 Tf 66 666 Td (be ported into an MVC View \(or a View Component\) largely as-is, keeping JSX-shaped markup as a) Tj ET
+BT /F1 10.5 Tf 66 651.5 Td (guide for the eventual .cshtml structure.) Tj ET
+BT /F1 10.5 Tf 66 637 Td (- All data access is already centralized behind src/context/DataContext.jsx and a small set of) Tj ET
+BT /F1 10.5 Tf 66 622.5 Td (hooks - no component calls fetch/localStorage directly for domain data. Swapping DataContext's) Tj ET
+BT /F1 10.5 Tf 66 608 Td (in-memory reducer for real HTTP calls to MVC controllers \(Properties, Rooms, RatePlans, Masters\)) Tj ET
+BT /F1 10.5 Tf 66 593.5 Td (is a localized change.) Tj ET
+BT /F1 10.5 Tf 66 579 Td (- src/lib/permissions.js is the single seam for role/claims logic, designed to be replaced by) Tj ET
+BT /F1 10.5 Tf 66 564.5 Td (ASP.NET Identity / JWT claims without touching any consuming component.) Tj ET
+BT /F2 13.5 Tf 56 536 Td (6. Future SQL Server Integration) Tj ET
+BT /F1 10.5 Tf 56 516 Td (Target database: NEW DATABASE: RATEBUZZ, on SQL Server 2022.) Tj ET
+BT /F1 10.5 Tf 56 501.5 Td (Every mutable collection in DataContext \(properties, rooms, ratePlans, and the master-data) Tj ET
+BT /F1 10.5 Tf 56 487 Td (slices: roomTypes, amenities, roomTemplates\) maps directly onto a candidate SQL Server table of) Tj ET
+BT /F1 10.5 Tf 56 472.5 Td (the same shape. The master-data CRUD \(add/update/delete\) added to the frontend already models) Tj ET
+BT /F1 10.5 Tf 56 458 Td (the exact contract a `/api/masters/{kind}` MVC controller backed by SQL Server master tables) Tj ET
+BT /F1 10.5 Tf 56 443.5 Td (would expose \(id, name, and - for templates - a JSON/normalized values payload\), so no frontend) Tj ET
+BT /F1 10.5 Tf 56 429 Td (redesign is needed when the backend lands - only DataContext's dispatch calls change from local) Tj ET
+BT /F1 10.5 Tf 56 414.5 Td (reducer actions to HTTP calls.) Tj ET
+BT /F2 13.5 Tf 56 386 Td (7. Mock Data Architecture) Tj ET
+BT /F1 10.5 Tf 56 366 Td (src/mocks/ holds seed arrays for every entity, structured close to how backend rows would look) Tj ET
+BT /F1 10.5 Tf 56 351.5 Td (\(id, name, and RBAC-relevant fields like ownerId/propertyId\). src/context/DataContext.jsx wraps) Tj ET
+BT /F1 10.5 Tf 56 337 Td (these in a useReducer store with a stamp\(\) helper that timestamps and attributes every write) Tj ET
+BT /F1 10.5 Tf 56 322.5 Td (\(lastModifiedBy/lastModifiedAt\) exactly as an API layer would. RBAC scoping \(which) Tj ET
+BT /F1 10.5 Tf 56 308 Td (properties/rooms/rate plans a signed-in user may see\) happens once in DataContext via) Tj ET
+BT /F1 10.5 Tf 56 293.5 Td (scopedProperties/scopedRooms/scopedRatePlans, so every page reads pre-scoped data instead of) Tj ET
+BT /F1 10.5 Tf 56 279 Td (re-implementing an ownerId check.) Tj ET
+BT /F2 13.5 Tf 56 250.5 Td (8. User Roles) Tj ET
+BT /F1 10.5 Tf 56 230.5 Td (Two demo accounts are available from the login page or the Topbar account switcher \(mock,) Tj ET
+BT /F1 10.5 Tf 56 216 Td (demo-only - stands in for ASP.NET Identity/JWT roles until the backend exists\):) Tj ET
+BT /F1 10.5 Tf 66 201.5 Td (- Super Admin \(admin@ratebuzz.com / Admin@123\) - full access to all properties, rooms, rate) Tj ET
+BT /F1 10.5 Tf 66 187 Td (plans, and integrations.) Tj ET
+BT /F1 10.5 Tf 66 172.5 Td (- Property Owner \(owner@ratebuzz.com / Owner@123\) - scoped to their own properties only; cannot) Tj ET
+BT /F1 10.5 Tf 66 158 Td (see Integrations; Property ID is locked after creation; can archive but not permanently delete) Tj ET
+BT /F1 10.5 Tf 66 143.5 Td (Rooms/Rate Plans.) Tj ET
+BT /F1 10.5 Tf 56 129 Td (Capability flags are exposed via usePermissions\(\), derived from role in src/lib/permissions.js.) Tj ET
+BT /F2 13.5 Tf 56 100.5 Td (9. Module Overview) Tj ET
+BT /F1 10.5 Tf 66 80.5 Td (- Properties - list, create/edit form, and a tabbed profile \(Overview, Contact, Address,) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Length 2209 >>
+stream
+BT /F1 10.5 Tf 66 750 Td (Operational, Rooms, Rate Plans, Notes, Settings\). Archive/Restore + role-gated permanent delete.) Tj ET
+BT /F1 10.5 Tf 66 735.5 Td (CSV export, Import Wizard.) Tj ET
+BT /F1 10.5 Tf 66 721 Td (- Rooms - property-scoped list with a fixed left filter panel \(Properties, Room Type,) Tj ET
+BT /F1 10.5 Tf 66 706.5 Td (Occupancy\). Creating a room while multiple properties are selected clones an independent room) Tj ET
+BT /F1 10.5 Tf 66 692 Td (record into each selected property. Room Types, Amenities, and Room Templates are managed as) Tj ET
+BT /F1 10.5 Tf 66 677.5 Td (reusable master records via inline Add/Edit/Delete, architected as future SQL Server master) Tj ET
+BT /F1 10.5 Tf 66 663 Td (tables.) Tj ET
+BT /F1 10.5 Tf 66 648.5 Td (- Rate Plans - property/room-scoped list with a nested Property to Room filter tree and a Meal) Tj ET
+BT /F1 10.5 Tf 66 634 Td (Plan filter. The Cancellation Policy step supports an optional Partial Refund \(Yes/No\) with) Tj ET
+BT /F1 10.5 Tf 66 619.5 Td (Refund Percentage and a Refund Until window \(Hours/Days before check-in\), mirroring the existing) Tj ET
+BT /F1 10.5 Tf 66 605 Td (Tax Inclusive / Tax Percent interaction pattern. Pricing Periods are managed on the Rate Plan) Tj ET
+BT /F1 10.5 Tf 66 590.5 Td (Profile page.) Tj ET
+BT /F1 10.5 Tf 66 576 Td (- Settings - General, Defaults \(per-entity\), Appearance \(density/accent, persisted\), and) Tj ET
+BT /F1 10.5 Tf 66 561.5 Td (Integrations \(role-gated\).) Tj ET
+BT /F2 13.5 Tf 56 533 Td (Appendix  -  Key Files) Tj ET
+BT /F1 10.5 Tf 66 513 Td (- src/context/DataContext.jsx - single source of truth for all domain + master data, CRUD) Tj ET
+BT /F1 10.5 Tf 66 498.5 Td (actions, and RBAC scoping.) Tj ET
+BT /F1 10.5 Tf 66 484 Td (- src/lib/permissions.js - role to capability-flag mapping \(the future Identity/claims seam\).) Tj ET
+BT /F1 10.5 Tf 66 469.5 Td (- src/mocks/masterData.js - seed data for the Room Types / Amenities / Room Templates master) Tj ET
+BT /F1 10.5 Tf 66 455 Td (tables.) Tj ET
+BT /F1 10.5 Tf 66 440.5 Td (- src/components/ui/MasterDataManager.jsx - generic Add/Edit/Delete UI for simple {id, name}) Tj ET
+BT /F1 10.5 Tf 66 426 Td (master tables.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 9 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /MediaBox [0 0 612 792] /Contents 3 0 R >>
+endobj
+7 0 obj
+<< /Type /Page /Parent 9 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /MediaBox [0 0 612 792] /Contents 4 0 R >>
+endobj
+8 0 obj
+<< /Type /Page /Parent 9 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /MediaBox [0 0 612 792] /Contents 5 0 R >>
+endobj
+9 0 obj
+<< /Type /Pages /Kids [6 0 R 7 0 R 8 0 R] /Count 3 >>
+endobj
+10 0 obj
+<< /Type /Catalog /Pages 9 0 R >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000004208 00000 n 
+0000008662 00000 n 
+0000010922 00000 n 
+0000011058 00000 n 
+0000011194 00000 n 
+0000011330 00000 n 
+0000011399 00000 n 
+trailer
+<< /Size 11 /Root 10 0 R >>
+startxref
+11449
+%%EOF
