@@ -1,6 +1,9 @@
-import React from "react";
+import React, { memo } from "react";
 
-export function TagChips({ tags = [], max = 3 }) {
+// `tags` is usually a stable array reference straight from a store record
+// (e.g. room.amenities), so memoizing lets this skip re-render whenever the
+// row it's in rerenders for unrelated reasons.
+export const TagChips = memo(function TagChips({ tags = [], max = 3 }) {
   if (!tags.length) return <span className="table__cell-muted">—</span>;
   const shown = tags.slice(0, max);
   const rest = tags.length - shown.length;
@@ -12,7 +15,7 @@ export function TagChips({ tags = [], max = 3 }) {
       {rest > 0 && <span className="tag-chip tag-chip--more">+{rest}</span>}
     </div>
   );
-}
+});
 
 export function TagPicker({ options, value = [], onChange }) {
   const toggle = (tag) => {

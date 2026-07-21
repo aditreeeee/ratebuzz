@@ -12,7 +12,10 @@
   --color-border: #dcecf2;
   --color-text: #0a1a3a;
   --color-text-muted: #4a5b7a;
-  --color-text-faint: #8695ab;
+  /* #6b7a94 gives ~4.6:1 on white, meeting WCAG AA for normal text — the
+     previous #8695ab only reached ~3.3:1, which failed AA at the 11-13px
+     sizes this token is used at (labels, hints, muted table cells). */
+  --color-text-faint: #6b7a94;
 
   --color-success: #12946f;
   --color-success-bg: #e3f6ee;

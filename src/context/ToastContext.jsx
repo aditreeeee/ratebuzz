@@ -31,7 +31,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="toast-viewport">
+      <div className="toast-viewport" role="status" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => {
           const Icon = icons[t.variant];
           return (

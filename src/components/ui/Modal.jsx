@@ -1,15 +1,49 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, onClose, title, children, footer, size = "md" }) {
+  const dialogRef = useRef(null);
+  const previouslyFocusedRef = useRef(null);
+
+  // Focus management: move focus into the dialog on open, trap Tab within
+  // it while open, and restore focus to whatever triggered it on close —
+  // without this, keyboard/screen-reader users lose their place entirely
+  // whenever a modal opens.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
+    previouslyFocusedRef.current = document.activeElement;
+
+    const focusables = () => Array.from(dialogRef.current?.querySelectorAll(FOCUSABLE_SELECTOR) || []);
+    const first = focusables()[0];
+    (first || dialogRef.current)?.focus();
+
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
+      previouslyFocusedRef.current?.focus?.();
     };
   }, [open, onClose]);
 
@@ -17,7 +51,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
 
   return (
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title} ref={dialogRef} tabIndex={-1}>
         <div className="modal__header">
           <h2 className="modal__title">{title}</h2>
           <button className="modal__close" onClick={onClose} aria-label="Close dialog">

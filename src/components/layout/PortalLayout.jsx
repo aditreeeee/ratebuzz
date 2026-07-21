@@ -12,11 +12,12 @@ export function PortalLayout() {
 
   return (
     <div className="portal-shell">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
       {mobileNavOpen && (
         <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       )}
-      <main className="portal-main">
+      <main className="portal-main" id="main-content" tabIndex={-1}>
         <button
           type="button"
           className="mobile-nav-toggle"
