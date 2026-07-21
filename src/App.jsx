@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import { DataProvider } from "./context/DataContext.jsx";
 import { PropertyContextProvider } from "./context/PropertyContext.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
+import { AppearanceProvider } from "./context/AppearanceContext.jsx";
 import { AuthGuard } from "./components/layout/AuthGuard.jsx";
 import { PortalLayout } from "./components/layout/PortalLayout.jsx";
 import { Login } from "./pages/Login.jsx";
@@ -16,6 +17,7 @@ import { SettingsPage } from "./pages/settings/SettingsPage.jsx";
 
 export default function App() {
   return (
+    <AppearanceProvider>
     <AuthProvider>
       <DataProvider>
         <PropertyContextProvider>
@@ -46,5 +48,6 @@ export default function App() {
         </PropertyContextProvider>
       </DataProvider>
     </AuthProvider>
+    </AppearanceProvider>
   );
 }

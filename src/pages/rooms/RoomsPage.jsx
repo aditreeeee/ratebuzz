@@ -127,7 +127,7 @@ export function RoomsPage() {
   const openCreate = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (r) => { setEditing(r); setFormOpen(true); };
 
-  const handleSubmit = (form) => {
+  const handleSubmit = (form, opts) => {
     if (editing) {
       data.updateRoom({ ...editing, ...form });
       toast.success(`${form.name} updated.`);
@@ -135,7 +135,7 @@ export function RoomsPage() {
       const created = data.addRoom(form);
       toast.success(`${created.name} created as ${created.id}.`);
     }
-    setFormOpen(false);
+    if (!opts?.keepOpen) setFormOpen(false);
   };
 
   const handleDuplicate = (r) => {

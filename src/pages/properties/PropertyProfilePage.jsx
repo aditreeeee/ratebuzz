@@ -158,11 +158,12 @@ export function PropertyProfilePage() {
       {active === "contact" && (
         <Card>
           <div className="detail-grid">
-            <div className="detail-field"><span>Contact Name</span><strong>{property.contactName || "Not set"}</strong></div>
-            <div className="detail-field"><span>Contact Email</span><strong>{property.contactEmail || "Not set"}</strong></div>
-            <div className="detail-field"><span>Contact Phone</span><strong>{property.contactPhone || "Not set"}</strong></div>
+            <div className="detail-field"><span>Contact Person</span><strong>{property.contactName || "Not set"}</strong></div>
+            <div className="detail-field"><span>Phone</span><strong>{property.contactPhone || "Not set"}</strong></div>
+            <div className="detail-field"><span>Mobile</span><strong>{property.contactMobile || "Not set"}</strong></div>
+            <div className="detail-field"><span>Email</span><strong>{property.contactEmail || "Not set"}</strong></div>
+            <div className="detail-field"><span>Website</span><strong>{property.contactWebsite || "Not set"}</strong></div>
           </div>
-          <p className="notes-panel__hint" style={{ marginTop: 12 }}>Contact details can be added via Edit &rarr; extend the property form once contact fields are captured from the backend.</p>
         </Card>
       )}
 

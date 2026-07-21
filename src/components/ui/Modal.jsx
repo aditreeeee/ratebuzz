@@ -24,7 +24,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
             <X size={18} strokeWidth={2} />
           </button>
         </div>
-        <div className="modal__body">{children}</div>
+        <div className={size === "full" ? "modal__body modal__body--flush" : "modal__body"}>{children}</div>
         {footer && <div className="modal__footer">{footer}</div>}
       </div>
     </div>

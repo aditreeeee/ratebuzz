@@ -1,11 +1,12 @@
 import React from "react";
 
-export function Field({ label, hint, error, required, children, id }) {
+export function Field({ label, hint, error, required, children, id, modified }) {
   return (
-    <div className="field">
+    <div className={`field ${modified ? "field--modified" : ""}`}>
       {label && (
         <label htmlFor={id} className="field__label">
           {label} {required && <span className="field__required">*</span>}
+          {modified && <span className="field__modified-dot" title="Modified since last save" />}
         </label>
       )}
       {children}

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Layers } from "lucide-react";
+import { Layers, Phone, User, Smartphone, Mail, Globe, MapPin } from "lucide-react";
 import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select, Textarea } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
@@ -19,13 +19,23 @@ const EMPTY = {
   propertyType: PROPERTY_TYPES[0], status: "Draft", description: "",
   propertyCategory: PROPERTY_CATEGORIES[0], serviceModel: SERVICE_MODELS[0], accommodationStyle: ACCOMMODATION_STYLES[0],
   tags: [], logoUrl: "",
+  contactName: "", contactPhone: "", contactMobile: "", contactEmail: "", contactWebsite: "", addressLine: "",
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_RE = /^https?:\/\/[^\s]+\.[^\s]+$/i;
 
 function validate(form) {
   const errors = {};
   if (!form.name || !form.name.trim()) errors.name = "Property name is required.";
   if (!form.country || !form.country.trim()) errors.country = "Country is required.";
   if (!form.city || !form.city.trim()) errors.city = "City is required.";
+  if (form.contactEmail && form.contactEmail.trim() && !EMAIL_RE.test(form.contactEmail.trim())) {
+    errors.contactEmail = "Enter a valid email address.";
+  }
+  if (form.contactWebsite && form.contactWebsite.trim() && !URL_RE.test(form.contactWebsite.trim())) {
+    errors.contactWebsite = "Enter a valid URL, e.g. https://hotel.com";
+  }
   return errors;
 }
 
@@ -139,6 +149,29 @@ export function PropertyForm({ open, onClose, onSubmit, initial }) {
                 </Field>
                 <Field label="Accommodation Style" required id="p-accommodation">
                   <Select id="p-accommodation" options={ACCOMMODATION_STYLES} value={form.accommodationStyle} onChange={set("accommodationStyle")} />
+                </Field>
+              </div>
+            </AccordionSection>
+
+            <AccordionSection title="Contact Information" icon={Phone} defaultOpen>
+              <div className="form-grid">
+                <Field label="Contact Person" id="p-contact-name">
+                  <Input id="p-contact-name" icon={User} value={form.contactName} onChange={set("contactName")} placeholder="e.g. Front Desk Manager" />
+                </Field>
+                <Field label="Phone" id="p-contact-phone">
+                  <Input id="p-contact-phone" icon={Phone} value={form.contactPhone} onChange={set("contactPhone")} placeholder="+1 555 010 2020" />
+                </Field>
+                <Field label="Mobile" id="p-contact-mobile">
+                  <Input id="p-contact-mobile" icon={Smartphone} value={form.contactMobile} onChange={set("contactMobile")} placeholder="+1 555 010 4040" />
+                </Field>
+                <Field label="Email" id="p-contact-email" error={errors.contactEmail}>
+                  <Input id="p-contact-email" icon={Mail} type="email" value={form.contactEmail} onChange={set("contactEmail")} placeholder="reservations@hotel.com" />
+                </Field>
+                <Field label="Website" id="p-contact-website" error={errors.contactWebsite}>
+                  <Input id="p-contact-website" icon={Globe} value={form.contactWebsite} onChange={set("contactWebsite")} placeholder="https://hotel.com" />
+                </Field>
+                <Field label="Address" id="p-contact-address">
+                  <Input id="p-contact-address" icon={MapPin} value={form.addressLine} onChange={set("addressLine")} placeholder="Street address" />
                 </Field>
               </div>
             </AccordionSection>
