@@ -23,9 +23,8 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
-import { usePaginatedSortedFiltered, formatCurrency } from "../../lib/format.js";
+import { usePaginatedSortedFiltered } from "../../lib/format.js";
 import { RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
-import { getCurrentActivePeriod } from "../../lib/pricingPeriods.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 
 const PAGE_SIZE = 10;
@@ -36,8 +35,7 @@ const BASE_COLUMNS = [
   { key: "room", label: "Room", sortable: false, width: 150 },
   { key: "property", label: "Property", sortable: false, width: 160 },
   { key: "mealPlan", label: "Meal Plan", sortable: false, width: 150 },
-  { key: "currentPrice", label: "Current Price", sortable: false, width: 120 },
-  { key: "periods", label: "Pricing Periods", sortable: false, width: 110 },
+  { key: "seasons", label: "Rate Seasons", sortable: false, width: 130 },
   { key: "status", label: "Status", sortable: true, width: 100 },
   { key: "actions", label: "", sortable: false, width: 150 },
 ];
@@ -234,8 +232,7 @@ export function RatePlansPage() {
     { label: "Room", value: (rp) => roomLookup(rp.roomId)?.name || "" },
     { label: "Property", value: (rp) => propertyForRoom(roomLookup(rp.roomId))?.name || "" },
     { label: "Meal Plan", value: (rp) => `${rp.mealPlan} (${mealPlanLabel(rp.mealPlan)})` },
-    { label: "Current Price", value: (rp) => { const p = getCurrentActivePeriod(rp.pricingPeriods); return p ? formatCurrency(p.baseRate, p.currency) : ""; } },
-    { label: "Pricing Periods", value: (rp) => (rp.pricingPeriods || []).length },
+    { label: "Rate Seasons", value: (rp) => (rp.seasons || []).join(", ") },
     { label: "Status", value: (rp) => rp.status },
   ];
   const exportRowsData = selection.count ? ratePlansInView.filter((rp) => selection.selected.includes(rp.id)) : pageData;
@@ -335,7 +332,6 @@ export function RatePlansPage() {
             renderRow={(rp) => {
               const room = roomLookup(rp.roomId);
               const property = propertyForRoom(room);
-              const currentPeriod = getCurrentActivePeriod(rp.pricingPeriods);
               return (
                 <tr key={rp.id}>
                   <td>
@@ -349,8 +345,7 @@ export function RatePlansPage() {
                   <td className="table__cell-muted">{room?.name || "—"}</td>
                   <td className="table__cell-muted">{property?.name || "—"}</td>
                   <td title={mealPlanLabel(rp.mealPlan)}>{rp.mealPlan}</td>
-                  <td className="tabular">{currentPeriod ? formatCurrency(currentPeriod.baseRate, currentPeriod.currency) : "—"}</td>
-                  <td className="tabular">{(rp.pricingPeriods || []).length}</td>
+                  <td className="table__cell-muted">{(rp.seasons || []).length ? `${rp.seasons.length} season${rp.seasons.length === 1 ? "" : "s"}` : "—"}</td>
                   <td><StatusBadge status={rp.status} /></td>
                   <td>
                     <div className="table__actions">

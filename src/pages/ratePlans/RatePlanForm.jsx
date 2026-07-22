@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Sparkles, LayoutGrid, UtensilsCrossed, Ban, Percent,
+  Sparkles, LayoutGrid, UtensilsCrossed, CalendarRange, Ban, Percent,
   Check, AlertCircle, RotateCcw,
 } from "lucide-react";
 import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
@@ -12,16 +12,19 @@ import { ratePlanFeatureIcon } from "../../lib/ratePlanFeatureIcons.js";
 import { MEAL_PLANS, CANCELLATION_POLICIES, RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
 import { RATE_PLAN_TEMPLATES } from "../../mocks/ratePlanTemplates.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
+import { useData } from "../../context/DataContext.jsx";
+import { RateSeasonManager } from "./RateSeasonManager.jsx";
 
-// pricingPeriods is intentionally never edited here — it's managed on the
-// Rate Plan Profile page's Pricing Periods tab. Keeping the key in EMPTY
-// just ensures baseline spreading ({...EMPTY, ...initial}) always preserves
-// whatever periods already exist through an edit/submit round-trip.
 const REFUND_UNTIL_UNITS = ["Hours", "Days"];
 
+// `seasons` holds the names of reusable Rate Season templates this plan
+// references (see RateSeasonManager / mocks/masterData.js) — master
+// configuration only. No historical or live pricing is stored on the rate
+// plan itself; Phase 3 will attach scraped rate observations against the
+// season definitions directly.
 const EMPTY = {
   name: "", mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0],
-  status: "Draft", roomId: "", taxInclusive: false, taxPercent: 0, pricingPeriods: [],
+  status: "Draft", roomId: "", taxInclusive: false, taxPercent: 0, seasons: [],
   partialRefundAllowed: false, refundPercent: 50, refundUntilValue: 24, refundUntilUnit: REFUND_UNTIL_UNITS[0],
 };
 
@@ -52,6 +55,7 @@ function validate(form) {
 const SECTION_FIELDS = {
   overview: ["roomId", "name", "status"],
   mealPlan: ["mealPlan"],
+  seasonalPricing: ["seasons"],
   cancellation: ["cancellationPolicy", "partialRefundAllowed", "refundPercent", "refundUntilValue", "refundUntilUnit"],
   taxes: ["taxInclusive", "taxPercent"],
 };
@@ -59,15 +63,19 @@ const SECTION_FIELDS = {
 const SECTIONS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
   { key: "mealPlan", label: "Meal Plan", icon: UtensilsCrossed },
+  { key: "seasonalPricing", label: "Seasonal Pricing", icon: CalendarRange },
   { key: "cancellation", label: "Cancellation Policy", icon: Ban },
   { key: "taxes", label: "Taxes & Fees", icon: Percent },
 ];
 
 export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, rooms = [], allRooms = [], scopeRoomId }) {
+  const data = useData();
   const [form, setForm] = useState(initial || EMPTY);
   const [errors, setErrors] = useState({});
   const [active, setActive] = useState("overview");
+  const [seasonManagerOpen, setSeasonManagerOpen] = useState(false);
   const baselineRef = useRef(EMPTY);
+  const seasonOptions = (data.masters.rateSeasons || []).filter((s) => !s.archived).map((s) => s.name);
 
   useEffect(() => {
     const baseline = initial
@@ -264,6 +272,20 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
               />
             )}
 
+            {active === "seasonalPricing" && (
+              <FeatureChipGrid
+                label="Rate Seasons"
+                options={seasonOptions}
+                value={form.seasons}
+                onChange={setField("seasons")}
+                multiple
+                getIcon={() => ratePlanFeatureIcon("Seasonal")}
+                onManage={() => setSeasonManagerOpen(true)}
+                manageLabel="Manage Rate Seasons"
+                hint="Attach one or more reusable Rate Season templates (Standard, Peak, Weekend, Festival, Holiday, Event Season). These are master configuration only — historical and live pricing will be tracked from Phase 3 onward."
+              />
+            )}
+
             {active === "cancellation" && (
               <>
                 <FeatureChipGrid
@@ -335,6 +357,7 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
       confirmLabel="Discard Changes"
       danger
     />
+    <RateSeasonManager open={seasonManagerOpen} onClose={() => setSeasonManagerOpen(false)} />
     </>
   );
 }

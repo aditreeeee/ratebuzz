@@ -14,8 +14,7 @@ import { Textarea } from "../../components/ui/Input.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { ExportMenu } from "../../components/ui/ExportMenu.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
-import { formatDate, formatCurrency } from "../../lib/format.js";
-import { getCurrentActivePeriod } from "../../lib/pricingPeriods.js";
+import { formatDate } from "../../lib/format.js";
 import { useData } from "../../context/DataContext.jsx";
 import { usePropertyContext } from "../../context/PropertyContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
@@ -233,11 +232,11 @@ export function PropertyProfilePage() {
             ) : (
               <div className="detail-linked-list">
                 {ratePlans.map((rp) => {
-                  const currentPeriod = getCurrentActivePeriod(rp.pricingPeriods);
+                  const seasonCount = (rp.seasons || []).length;
                   return (
                     <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/portal/rate-plans/${rp.id}`)}>
                       <span>{rp.name}</span>
-                      <span className="tabular">{currentPeriod ? formatCurrency(currentPeriod.baseRate, currentPeriod.currency) : "—"}</span>
+                      <span className="table__cell-muted">{seasonCount ? `${seasonCount} season${seasonCount === 1 ? "" : "s"}` : "No seasons"}</span>
                     </div>
                   );
                 })}

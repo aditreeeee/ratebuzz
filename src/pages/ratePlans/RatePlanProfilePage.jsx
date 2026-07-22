@@ -1,16 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Tag, MapPin, Pencil, Copy, Archive, RotateCcw, Trash2, Plus,
+  Tag, MapPin, Pencil, Copy, Archive, RotateCcw, Trash2, Settings2,
   LayoutGrid, BedDouble, CalendarRange, UtensilsCrossed, Ban, UsersRound,
-  Percent, StickyNote, History, TrendingUp,
+  Percent, StickyNote, History,
 } from "lucide-react";
 import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
 import { Tabs } from "../../components/ui/Tabs.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
-import { StatusBadge } from "../../components/ui/Badge.jsx";
-import { Table } from "../../components/ui/Table.jsx";
+import { StatusBadge, Badge } from "../../components/ui/Badge.jsx";
 import { Textarea } from "../../components/ui/Input.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
@@ -20,14 +19,13 @@ import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { mealPlanLabel } from "../../mocks/ratePlans.js";
-import { classifyPeriodStatus, getCurrentActivePeriod, nextPeriodId } from "../../lib/pricingPeriods.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
-import { PricingPeriodForm } from "./PricingPeriodForm.jsx";
+import { RateSeasonManager } from "./RateSeasonManager.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
   { key: "room", label: "Room Information", icon: BedDouble },
-  { key: "pricing", label: "Pricing Periods", icon: CalendarRange },
+  { key: "pricing", label: "Seasonal Pricing", icon: CalendarRange },
   { key: "mealPlan", label: "Meal Plan", icon: UtensilsCrossed },
   { key: "cancellation", label: "Cancellation Policy", icon: Ban },
   { key: "occupancy", label: "Occupancy Rules", icon: UsersRound },
@@ -46,21 +44,15 @@ export function RatePlanProfilePage() {
   const [formOpen, setFormOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notes, setNotes] = useState("");
-  const [periodFormOpen, setPeriodFormOpen] = useState(false);
-  const [editingPeriod, setEditingPeriod] = useState(null);
-  const [confirmDeletePeriod, setConfirmDeletePeriod] = useState(null);
+  const [seasonManagerOpen, setSeasonManagerOpen] = useState(false);
 
   const ratePlan = data.ratePlans.find((rp) => rp.id === id);
   const room = ratePlan ? data.rooms.find((r) => r.id === ratePlan.roomId) : null;
   const property = room ? data.properties.find((p) => p.id === room.propertyId) : null;
-  const currency = property?.currency || "USD";
 
-  const periods = ratePlan?.pricingPeriods || [];
-  const currentPeriod = useMemo(() => getCurrentActivePeriod(periods), [periods]);
-  const nextScheduled = useMemo(
-    () => periods.filter((p) => classifyPeriodStatus(p) === "Scheduled").sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))[0],
-    [periods]
-  );
+  const assignedSeasons = ratePlan
+    ? (ratePlan.seasons || []).map((name) => (data.masters.rateSeasons || []).find((s) => s.name === name)).filter(Boolean)
+    : [];
 
   if (!ratePlan) {
     return (
@@ -89,41 +81,6 @@ export function RatePlanProfilePage() {
     data.deleteRatePlanPermanently(ratePlan.id);
     toast.success(`${ratePlan.name} permanently deleted.`);
     navigate("/portal/rate-plans");
-  };
-
-  const savePeriods = (nextPeriods, message) => {
-    data.updateRatePlan({ ...ratePlan, pricingPeriods: nextPeriods });
-    if (message) toast.success(message);
-  };
-
-  const openAddPeriod = () => { setEditingPeriod(null); setPeriodFormOpen(true); };
-  const openEditPeriod = (p) => { setEditingPeriod(p); setPeriodFormOpen(true); };
-
-  const handlePeriodSubmit = (form) => {
-    if (editingPeriod) {
-      savePeriods(periods.map((p) => (p.id === editingPeriod.id ? { ...p, ...form } : p)), "Pricing period updated.");
-    } else {
-      const created = { ...form, id: nextPeriodId(periods) };
-      savePeriods([created, ...periods], `Pricing period ${created.id} added.`);
-    }
-    setPeriodFormOpen(false);
-  };
-
-  const handleDuplicatePeriod = (p) => {
-    const copy = { ...p, id: nextPeriodId(periods) };
-    savePeriods([copy, ...periods], `Duplicated as ${copy.id}.`);
-  };
-
-  const handleToggleArchivePeriod = (p) => {
-    savePeriods(
-      periods.map((x) => (x.id === p.id ? { ...x, archived: !x.archived } : x)),
-      p.archived ? "Pricing period restored." : "Pricing period archived."
-    );
-  };
-
-  const handleDeletePeriod = () => {
-    savePeriods(periods.filter((p) => p.id !== confirmDeletePeriod.id), "Pricing period deleted.");
-    setConfirmDeletePeriod(null);
   };
 
   return (
@@ -166,21 +123,24 @@ export function RatePlanProfilePage() {
 
       <div className="page-section">
         <Card className="current-price-card">
-          <div className="current-price-card__label"><TrendingUp size={14} strokeWidth={2} /> Current Active Price</div>
-          {currentPeriod ? (
+          <div className="current-price-card__label"><CalendarRange size={14} strokeWidth={2} /> Assigned Rate Seasons</div>
+          {assignedSeasons.length > 0 ? (
             <>
               <div className="current-price-card__row">
-                <div className="current-price-card__stat"><span>Base</span><strong>{formatCurrency(currentPeriod.baseRate, currentPeriod.currency)}</strong></div>
-                <div className="current-price-card__stat"><span>Weekend</span><strong>{formatCurrency(currentPeriod.weekendRate, currentPeriod.currency)}</strong></div>
-                <div className="current-price-card__stat"><span>Extra Adult</span><strong>{formatCurrency(currentPeriod.extraAdultRate, currentPeriod.currency)}</strong></div>
-                <div className="current-price-card__stat"><span>Child</span><strong>{formatCurrency(currentPeriod.childRate, currentPeriod.currency)}</strong></div>
+                {assignedSeasons.map((season) => (
+                  <div className="current-price-card__stat" key={season.id}>
+                    <span>{season.category}</span>
+                    <strong>{season.name}</strong>
+                  </div>
+                ))}
               </div>
-              <p className="current-price-card__range">Effective {formatDate(currentPeriod.effectiveFrom)} &ndash; {formatDate(currentPeriod.effectiveTo)}</p>
+              <p className="current-price-card__range">
+                Master configuration only — default pricing where set. Historical and live pricing will be tracked from Phase 3 onward.
+              </p>
             </>
           ) : (
             <p className="current-price-card__empty">
-              No pricing period is currently active.
-              {nextScheduled && ` Next period "${formatDate(nextScheduled.effectiveFrom)}" is scheduled.`}
+              No Rate Seasons assigned yet. Edit this rate plan's Seasonal Pricing section to attach one.
             </p>
           )}
         </Card>
@@ -196,7 +156,7 @@ export function RatePlanProfilePage() {
             <div className="detail-field"><span>Rate Plan ID</span><strong className="tabular">{ratePlan.id}</strong></div>
             <div className="detail-field"><span>Name</span><strong>{ratePlan.name}</strong></div>
             <div className="detail-field"><span>Status</span><strong><StatusBadge status={ratePlan.status} /></strong></div>
-            <div className="detail-field"><span>Pricing Periods</span><strong className="tabular">{periods.length}</strong></div>
+            <div className="detail-field"><span>Rate Seasons</span><strong className="tabular">{assignedSeasons.length}</strong></div>
           </div>
         </Card>
       )}
@@ -214,57 +174,39 @@ export function RatePlanProfilePage() {
       {active === "pricing" && (
         <Card padded={false}>
           <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 800 }}>Pricing Periods</h3>
-            {permissions.canCreateRatePlan && (
-              <Button variant="secondary" size="sm" icon={Plus} onClick={openAddPeriod}>Add Pricing Period</Button>
-            )}
+            <h3 style={{ fontSize: 15, fontWeight: 800 }}>Seasonal Pricing</h3>
+            <Button variant="secondary" size="sm" icon={Settings2} onClick={() => setSeasonManagerOpen(true)}>Manage Rate Seasons</Button>
           </div>
           <div style={{ padding: 20 }}>
-            <Table
-              columns={[
-                { key: "from", label: "Effective From" },
-                { key: "to", label: "Effective To" },
-                { key: "base", label: "Base Rate" },
-                { key: "weekend", label: "Weekend Rate" },
-                { key: "child", label: "Child Rate" },
-                { key: "extraAdult", label: "Extra Adult Rate" },
-                { key: "status", label: "Status" },
-                { key: "actions", label: "" },
-              ]}
-              data={periods}
-              rowKey={(row) => row.id}
-              emptyState={
-                <EmptyState
-                  icon={CalendarRange}
-                  title="No pricing periods yet"
-                  message="Add a pricing period to define rates for a date range."
-                  action={permissions.canCreateRatePlan && <Button variant="secondary" size="sm" icon={Plus} onClick={openAddPeriod}>Add Pricing Period</Button>}
-                />
-              }
-              renderRow={(p) => (
-                <tr key={p.id}>
-                  <td className="tabular">{formatDate(p.effectiveFrom)}</td>
-                  <td className="tabular">{formatDate(p.effectiveTo)}</td>
-                  <td className="tabular">{formatCurrency(p.baseRate, p.currency)}</td>
-                  <td className="tabular">{formatCurrency(p.weekendRate, p.currency)}</td>
-                  <td className="tabular">{formatCurrency(p.childRate, p.currency)}</td>
-                  <td className="tabular">{formatCurrency(p.extraAdultRate, p.currency)}</td>
-                  <td><StatusBadge status={classifyPeriodStatus(p)} /></td>
-                  <td>
-                    <div className="table__actions">
-                      <button className="table__action-btn" title="Edit" onClick={() => openEditPeriod(p)}><Pencil size={15} strokeWidth={2} /></button>
-                      <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicatePeriod(p)}><Copy size={15} strokeWidth={2} /></button>
-                      <button className="table__action-btn" title={p.archived ? "Restore" : "Archive"} onClick={() => handleToggleArchivePeriod(p)}>
-                        {p.archived ? <RotateCcw size={15} strokeWidth={2} /> : <Archive size={15} strokeWidth={2} />}
-                      </button>
-                      {permissions.canDeleteRatePlanPermanently && (
-                        <button className="table__action-btn table__action-btn--danger" title="Delete" onClick={() => setConfirmDeletePeriod(p)}><Trash2 size={15} strokeWidth={2} /></button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            />
+            <p className="master-manager__hint" style={{ marginBottom: 16 }}>
+              Rate Seasons are reusable master templates (Standard, Peak, Weekend, Festival, Holiday, Event Season) — attach
+              or remove them from the Edit form's Seasonal Pricing section. Default pricing shown here is master
+              configuration only; historical and live pricing will be tracked from Phase 3 onward.
+            </p>
+            {assignedSeasons.length === 0 ? (
+              <EmptyState
+                icon={CalendarRange}
+                title="No Rate Seasons assigned"
+                message="Edit this rate plan and attach one or more Rate Season templates."
+                action={<Button variant="secondary" size="sm" icon={Pencil} onClick={() => setFormOpen(true)}>Edit Rate Plan</Button>}
+              />
+            ) : (
+              <div className="detail-linked-list">
+                {assignedSeasons.map((season) => (
+                  <div key={season.id} className="detail-linked-item">
+                    <span>
+                      <Badge variant="info">{season.category}</Badge> {season.name}
+                    </span>
+                    <span className="table__cell-muted tabular">
+                      {season.hasDefaultPricing
+                        ? `Base ${formatCurrency(season.defaultBaseRate, season.currency)} · Weekend ${formatCurrency(season.defaultWeekendRate, season.currency)}`
+                        : "No default pricing"}
+                      {season.hasValidityRange && ` · ${formatDate(season.validFrom)} – ${formatDate(season.validTo)}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Card>
       )}
@@ -359,31 +301,15 @@ export function RatePlanProfilePage() {
         scopeRoomId={room?.id || ""}
       />
 
-      <PricingPeriodForm
-        open={periodFormOpen}
-        onClose={() => setPeriodFormOpen(false)}
-        onSubmit={handlePeriodSubmit}
-        initial={editingPeriod}
-        defaultCurrency={currency}
-      />
+      <RateSeasonManager open={seasonManagerOpen} onClose={() => setSeasonManagerOpen(false)} />
 
       <ConfirmModal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDeletePermanently}
         title="Delete Rate Plan Permanently"
-        message={`"${ratePlan.name}" is archived. Permanently deleting it will also remove its pricing periods. This action cannot be undone.`}
+        message={`"${ratePlan.name}" is archived. Permanently deleting it cannot be undone. Its Rate Season templates are shared master data and will not be affected.`}
         confirmLabel="Delete Permanently"
-        danger
-      />
-
-      <ConfirmModal
-        open={!!confirmDeletePeriod}
-        onClose={() => setConfirmDeletePeriod(null)}
-        onConfirm={handleDeletePeriod}
-        title="Delete Pricing Period"
-        message={`Delete the pricing period effective ${formatDate(confirmDeletePeriod?.effectiveFrom)} – ${formatDate(confirmDeletePeriod?.effectiveTo)}? This cannot be undone.`}
-        confirmLabel="Delete"
         danger
       />
     </div>

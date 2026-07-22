@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useMemo } fr
 import { PROPERTIES } from "../mocks/properties.js";
 import { ROOMS } from "../mocks/rooms.js";
 import { RATE_PLANS } from "../mocks/ratePlans.js";
-import { ROOM_TYPES_MASTER, AMENITIES_MASTER, ROOM_TEMPLATES_MASTER } from "../mocks/masterData.js";
+import { ROOM_TYPES_MASTER, AMENITIES_MASTER, ROOM_TEMPLATES_MASTER, RATE_SEASONS_MASTER } from "../mocks/masterData.js";
 import { useAuth } from "./AuthContext.jsx";
 import { getPermissions } from "../lib/permissions.js";
 
@@ -16,6 +16,7 @@ const initialState = {
     roomTypes: ROOM_TYPES_MASTER,
     amenities: AMENITIES_MASTER,
     roomTemplates: ROOM_TEMPLATES_MASTER,
+    rateSeasons: RATE_SEASONS_MASTER,
   },
 };
 
