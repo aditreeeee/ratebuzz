@@ -8,12 +8,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/src/styles/tokens.css" />
-<link rel="stylesheet" href="/src/styles/global.css" />
-<link rel="stylesheet" href="/src/styles/components.css" />
-<link rel="stylesheet" href="/src/styles/layout.css" />
-<link rel="stylesheet" href="/src/styles/login.css" />
-<link rel="stylesheet" href="/src/styles/pages.css" />
+<link rel="stylesheet" href="./src/styles/tokens.css" />
+<link rel="stylesheet" href="./src/styles/global.css" />
+<link rel="stylesheet" href="./src/styles/components.css" />
+<link rel="stylesheet" href="./src/styles/layout.css" />
+<link rel="stylesheet" href="./src/styles/login.css" />
+<link rel="stylesheet" href="./src/styles/pages.css" />
 
 <script type="importmap">
 {
@@ -46,7 +46,7 @@
         showError("This browser does not support Service Workers, required for this no-build setup.");
         return;
       }
-      await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.register("./sw.js");
       await navigator.serviceWorker.ready;
       if (!navigator.serviceWorker.controller) {
         if (sessionStorage.getItem("sw-reload-attempted")) {
@@ -58,7 +58,7 @@
         return;
       }
       sessionStorage.removeItem("sw-reload-attempted");
-      await import("/src/main.jsx");
+      await import("./src/main.jsx");
     } catch (err) {
       showError((err && err.stack) || err);
     }
