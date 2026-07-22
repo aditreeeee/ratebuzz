@@ -7,11 +7,19 @@ const FOCUSABLE_SELECTOR =
 export function Modal({ open, onClose, title, children, footer, size = "md" }) {
   const dialogRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
+  // Keep the latest onClose without making the effect below depend on its
+  // identity — callers pass a new function every render (e.g. a form's
+  // guardedClose closes over current dirty-state), and re-running the
+  // focus-trap setup on every keystroke would steal focus back to the
+  // first focusable element mid-edit.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Focus management: move focus into the dialog on open, trap Tab within
   // it while open, and restore focus to whatever triggered it on close —
   // without this, keyboard/screen-reader users lose their place entirely
-  // whenever a modal opens.
+  // whenever a modal opens. Runs only when `open` toggles, not on every
+  // render, so it never interrupts in-progress typing.
   useEffect(() => {
     if (!open) return;
     previouslyFocusedRef.current = document.activeElement;
@@ -22,7 +30,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
 
     const onKey = (e) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -45,7 +53,7 @@ export function Modal({ open, onClose, title, children, footer, size = "md" }) {
       document.body.style.overflow = "";
       previouslyFocusedRef.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
