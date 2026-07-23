@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw, Archive, Upload, Building2 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
@@ -45,6 +45,52 @@ const VIEW_TABS = [
   { key: "active", label: "Active" },
   { key: "archived", label: "Archived" },
 ];
+
+// Extracted + memoized so a re-render of RatePlansPage (e.g. a search
+// keystroke) only re-renders rows whose own props actually changed. Room
+// names/property names/pricing summary are pre-resolved by the caller so
+// this component's props stay comparable by React.memo's shallow check.
+const RatePlanTableRow = memo(function RatePlanTableRow({
+  ratePlan, roomNames, propertyNames, pricingSummary, selected, onToggleSelect, onOpen,
+  onEdit, onDuplicate, onArchive, onRestore, onDeleteRequest, canDeletePermanently,
+}) {
+  const rp = ratePlan;
+  return (
+    <tr>
+      <td>
+        <Checkbox checked={selected} onChange={() => onToggleSelect(rp.id)} label={`Select ${rp.name}`} />
+      </td>
+      <td className="tabular table__cell-muted">{rp.id}</td>
+      <td className="row-link" onClick={() => onOpen(rp.id)}>
+        <div className="table__cell-primary">{rp.name}</div>
+        <div className="table__cell-muted">{rp.cancellationPolicy}</div>
+      </td>
+      <td><TagChips tags={roomNames} max={2} /></td>
+      <td className="table__cell-muted">{propertyNames || "—"}</td>
+      <td title={mealPlanLabel(rp.mealPlan)}>{rp.mealPlan}</td>
+      <td className="table__cell-muted">{pricingSummary}</td>
+      <td><StatusBadge status={rp.status} /></td>
+      <td>
+        <div className="table__actions">
+          {rp.status !== "Archived" ? (
+            <>
+              <button className="table__action-btn" title="Edit" onClick={() => onEdit(rp)}><Pencil size={15} strokeWidth={2} /></button>
+              <button className="table__action-btn" title="Duplicate" onClick={() => onDuplicate(rp)}><Copy size={15} strokeWidth={2} /></button>
+              <button className="table__action-btn" title="Archive" onClick={() => onArchive(rp)}><Archive size={15} strokeWidth={2} /></button>
+            </>
+          ) : (
+            <>
+              <button className="table__action-btn" title="Restore" onClick={() => onRestore(rp)}><RotateCcw size={15} strokeWidth={2} /></button>
+              {canDeletePermanently && (
+                <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => onDeleteRequest(rp)}><Trash2 size={15} strokeWidth={2} /></button>
+              )}
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 export function RatePlansPage() {
   const data = useData();
@@ -190,6 +236,11 @@ export function RatePlansPage() {
     },
     ...BASE_COLUMNS,
   ];
+  // Floor for the flexible "Name" column, plus every fixed column's own
+  // width — passed to <Table minWidth> so the grid scrolls horizontally on
+  // narrower viewports instead of squeezing the name column illegibly.
+  const NAME_COLUMN_FLOOR = 220;
+  const tableMinWidth = columns.reduce((sum, c) => sum + (c.width || NAME_COLUMN_FLOOR), 0);
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (rp) => { setEditing(rp); setFormOpen(true); };
@@ -334,6 +385,8 @@ export function RatePlansPage() {
             sortDir={sortDir}
             onSort={onSort}
             rowKey={(row) => row.id}
+            minWidth={tableMinWidth}
+            stickyHeader
             emptyState={
               !hasSelection ? (
                 <EmptyState
@@ -362,47 +415,28 @@ export function RatePlansPage() {
             }
             renderRow={(rp) => {
               const roomNames = roomNamesForRatePlan(rp.id);
-              const properties = [
+              const propertyNames = [
                 ...new Set(
                   data.ratePlanRooms.filter((p) => p.ratePlanId === rp.id).map((p) => propertyForRoom(roomLookup(p.roomId))?.name).filter(Boolean)
                 ),
-              ];
+              ].join(", ");
               return (
-                <tr key={rp.id}>
-                  <td>
-                    <Checkbox checked={selection.selected.includes(rp.id)} onChange={() => selection.toggle(rp.id)} label={`Select ${rp.name}`} />
-                  </td>
-                  <td className="tabular table__cell-muted">{rp.id}</td>
-                  <td className="row-link" onClick={() => navigate(`/portal/rate-plans/${rp.id}`)}>
-                    <div className="table__cell-primary">{rp.name}</div>
-                    <div className="table__cell-muted">{rp.cancellationPolicy}</div>
-                  </td>
-                  <td><TagChips tags={roomNames} max={2} /></td>
-                  <td className="table__cell-muted">{properties.join(", ") || "—"}</td>
-                  <td title={mealPlanLabel(rp.mealPlan)}>{rp.mealPlan}</td>
-                  <td className="table__cell-muted">
-                    {pricingRangeSummary(rp.id)}
-                  </td>
-                  <td><StatusBadge status={rp.status} /></td>
-                  <td>
-                    <div className="table__actions">
-                      {rp.status !== "Archived" ? (
-                        <>
-                          <button className="table__action-btn" title="Edit" onClick={() => openEdit(rp)}><Pencil size={15} strokeWidth={2} /></button>
-                          <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(rp)}><Copy size={15} strokeWidth={2} /></button>
-                          <button className="table__action-btn" title="Archive" onClick={() => handleArchive(rp)}><Archive size={15} strokeWidth={2} /></button>
-                        </>
-                      ) : (
-                        <>
-                          <button className="table__action-btn" title="Restore" onClick={() => handleRestore(rp)}><RotateCcw size={15} strokeWidth={2} /></button>
-                          {permissions.canDeleteRatePlanPermanently && (
-                            <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(rp)}><Trash2 size={15} strokeWidth={2} /></button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                <RatePlanTableRow
+                  key={rp.id}
+                  ratePlan={rp}
+                  roomNames={roomNames}
+                  propertyNames={propertyNames}
+                  pricingSummary={pricingRangeSummary(rp.id)}
+                  selected={selection.selected.includes(rp.id)}
+                  onToggleSelect={selection.toggle}
+                  onOpen={(id) => navigate(`/portal/rate-plans/${id}`)}
+                  onEdit={openEdit}
+                  onDuplicate={handleDuplicate}
+                  onArchive={handleArchive}
+                  onRestore={handleRestore}
+                  onDeleteRequest={setConfirmDelete}
+                  canDeletePermanently={permissions.canDeleteRatePlanPermanently}
+                />
               );
             }}
           />

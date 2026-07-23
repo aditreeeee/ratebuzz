@@ -170,7 +170,20 @@
 .badge--info { background: var(--color-info-bg); color: var(--color-teal); }
 
 /* ===== Table ===== */
-.table-scroll { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+/* No explicit height/max-height here on purpose: these tables never get an
+   internal scrollbar — however many rows the current page has (5, 6, however
+   many), the table grows to fit them all and the page itself scrolls, same
+   as any other page content. `overflow-x` stays purely for the horizontal
+   case (narrow viewports vs. `minWidth`) — note that alone is enough to make
+   the browser compute `overflow-y` as `auto` too per spec, which is exactly
+   why an explicit height/max-height here (even a "generous" one) is what
+   previously produced an unwanted internal vertical scrollbar; leaving
+   height fully natural avoids that entirely. Row-set changes (filter/sort/
+   page) are still animated, just via the tbody fade below, not a container
+   resize animation. */
+.table-scroll {
+  overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--color-border);
+}
 .table { width: 100%; border-collapse: collapse; background: var(--color-surface); min-width: 720px; }
 .table thead { background: var(--color-surface-alt); }
 .table__th { text-align: left; padding: 13px 16px; font-size: 12px; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--transition-fast); }

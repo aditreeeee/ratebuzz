@@ -276,6 +276,7 @@ export function CompSetsPage() {
                 onSort={onSort}
                 rowKey={(row) => row.id}
                 minWidth={tableMinWidth}
+                stickyHeader
                 emptyState={
                   !hasPropertySelection ? (
                     <EmptyState icon={Building2} title="Select a property to get started" message="Select one or more properties from the panel on the left to view their competitive sets." />

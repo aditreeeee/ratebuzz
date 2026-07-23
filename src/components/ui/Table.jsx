@@ -1,12 +1,17 @@
 import React from "react";
 import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
-// The table shell (scroll container, <colgroup>, header) always renders,
-// even with zero rows — only the tbody content swaps between real rows and
-// the empty-state row. This keeps column widths, the header, and the
-// surrounding card/toolbar/pagination from jumping around every time a
-// filter change (or property selection change) drives the row count to 0
-// and back.
+// No explicit/computed `height` on the scroll container on purpose — even a
+// single px of mismatch between an estimated row height and real rendered
+// content (text wrapping, sub-pixel rounding, etc.) is enough to trigger a
+// vertical scrollbar, because `overflow-x: auto` alone makes the browser
+// compute `overflow-y` as `auto` too (see the CSS overflow spec, and the
+// note on `.tag-chip--more[title]` below for the same quirk elsewhere in
+// this file). Leaving height fully natural means the container always
+// exactly equals its content's real height, so that forced-auto vertical
+// overflow never has anything to actually scroll — all rows for the current
+// page render in full, however many there are, and the page itself grows to
+// fit rather than the table clipping internally.
 export function Table({ columns, data, sortKey, sortDir, onSort, renderRow, rowKey, emptyState, stickyHeader = false, minWidth }) {
   // `table-layout: fixed` + `width: 100%` (see components.css) means a
   // column left without an explicit width (e.g. the "widest" Hotel/Name
@@ -62,7 +67,10 @@ export function Table({ columns, data, sortKey, sortDir, onSort, renderRow, rowK
             })}
           </tr>
         </thead>
-        <tbody key={data.length ? "data" : "empty"} className="table__tbody-transition">
+        <tbody
+          key={data.length ? data.map((row) => rowKey(row)).join("|") : "empty"}
+          className="table__tbody-transition"
+        >
           {data.length ? (
             data.map((row) => renderRow(row, rowKey(row)))
           ) : (

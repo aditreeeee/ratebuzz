@@ -1,4 +1,9 @@
 * { box-sizing: border-box; }
+/* Reserves the vertical scrollbar's width whether or not it's currently
+   needed, so a page crossing the "tall enough to scroll" threshold (e.g.
+   after a filter changes the row count) never shifts the whole layout
+   left/right. */
+html { scrollbar-gutter: stable; }
 html, body, #root { height: 100%; }
 body {
   margin: 0;

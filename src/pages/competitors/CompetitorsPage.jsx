@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus, Pencil, Copy, Archive, RotateCcw, Trash2, Award, Building2, Users2,
@@ -37,6 +37,89 @@ const PAGE_SIZE = 10;
 function kpiRingVariant(pct) {
   return pct === 100 ? "success" : pct === 0 ? "danger" : "warning";
 }
+
+// Extracted + memoized so a re-render of CompetitorsPage (e.g. a search
+// keystroke) only re-renders rows whose own props actually changed. All the
+// per-row lookups (readiness, mappings, comp sets, benchmark property name)
+// are pre-resolved by the caller so this component's props stay comparable
+// by React.memo's shallow check.
+const CompetitorTableRow = memo(function CompetitorTableRow({
+  competitor, benchmarkPropertyName, showBenchmarkName, groups, hasRoomMapping, hasRatePlanMapping, hasSource,
+  readinessScore, selected, onToggleSelect, onOpen, onRemoveFromGroup,
+  onEdit, onDuplicate, onArchive, onRestore, onDeleteRequest, canManageCompetitors,
+}) {
+  const c = competitor;
+  const readinessVariant = readinessScore === 100 ? "success" : readinessScore >= 50 ? "warning" : "danger";
+  const visibleGroups = groups.slice(0, 2);
+  const overflowGroups = groups.slice(2);
+  return (
+    <tr>
+      <td><Checkbox checked={selected} onChange={() => onToggleSelect(c.id)} label={`Select ${c.propertyName}`} /></td>
+      <td className="row-link" onClick={() => onOpen(c.id)}>
+        <div className="table__cell-primary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.propertyName}</div>
+        {/* Only shown when competitors from more than one benchmark property are
+            visible together — with a single benchmark it's already shown once above
+            in the "Benchmark Property" stat card, so repeating it per row is noise. */}
+        {showBenchmarkName && (
+          <div className="table__cell-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{benchmarkPropertyName}</div>
+        )}
+      </td>
+      <td className="table__cell-muted" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.city}</td>
+      <td className="tabular" style={{ whiteSpace: "nowrap" }}>{c.starRating ? `${c.starRating}★` : "—"}</td>
+      <td style={{ whiteSpace: "nowrap" }}>
+        {groups.length === 0 ? (
+          <span className="table__cell-muted">No comp set</span>
+        ) : (
+          <div className="tag-chips">
+            {visibleGroups.map((g) => (
+              <span key={g.id} className="tag-chip tag-chip--removable" title={g.name}>
+                <span className="tag-chip__label">{g.name}</span>
+                <button type="button" onClick={() => onRemoveFromGroup(c.id, g.id, g.name)} aria-label={`Remove from ${g.name}`}><X size={10} strokeWidth={2.5} /></button>
+              </span>
+            ))}
+            {overflowGroups.length > 0 && (
+              <span className="tag-chip tag-chip--more" title={overflowGroups.map((g) => g.name).join(", ")}>
+                +{overflowGroups.length}
+              </span>
+            )}
+          </div>
+        )}
+      </td>
+      <td style={{ whiteSpace: "nowrap" }}>
+        <Badge variant={hasRoomMapping ? "success" : "warning"}><BedDouble size={10} strokeWidth={2} style={{ marginRight: 2, verticalAlign: -1 }} />{hasRoomMapping ? "Mapped" : "None"}</Badge>
+      </td>
+      <td style={{ whiteSpace: "nowrap" }}>
+        <Badge variant={hasRatePlanMapping ? "success" : "warning"}><TagIcon size={10} strokeWidth={2} style={{ marginRight: 2, verticalAlign: -1 }} />{hasRatePlanMapping ? "Mapped" : "None"}</Badge>
+      </td>
+      <td style={{ whiteSpace: "nowrap" }}><Badge variant={hasSource ? "success" : "warning"}><PlugZap size={10} strokeWidth={2} style={{ marginRight: 2, verticalAlign: -1 }} />{hasSource ? "Configured" : "None"}</Badge></td>
+      <td>
+        <div className={`kpi-ring kpi-ring--sm kpi-ring--${readinessVariant}`} style={{ "--ring-pct": readinessScore }} title={`${readinessScore}% ready`}>
+          <span className="kpi-ring__value tabular">{readinessScore}</span>
+        </div>
+      </td>
+      <td style={{ whiteSpace: "nowrap" }}><StatusBadge status={c.status} /></td>
+      <td className="table__cell-muted tabular" style={{ whiteSpace: "nowrap" }}>{formatDate(c.lastModifiedAt)}</td>
+      <td>
+        <div className="table__actions table__actions--reveal">
+          {c.status !== "Archived" ? (
+            <>
+              <button className="table__action-btn" title="Edit" onClick={() => onEdit(c)}><Pencil size={15} strokeWidth={2} /></button>
+              <button className="table__action-btn" title="Duplicate" onClick={() => onDuplicate(c)}><Copy size={15} strokeWidth={2} /></button>
+              <button className="table__action-btn" title="Archive" onClick={() => onArchive(c)}><Archive size={15} strokeWidth={2} /></button>
+            </>
+          ) : (
+            <>
+              <button className="table__action-btn" title="Restore" onClick={() => onRestore(c)}><RotateCcw size={15} strokeWidth={2} /></button>
+              {canManageCompetitors && (
+                <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => onDeleteRequest(c)}><Trash2 size={15} strokeWidth={2} /></button>
+              )}
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
 
 // Module 1 (redesigned) — Competitors is Phase 2's primary workflow and
 // homepage: Select Benchmark Property (the left filter panel) -> Add
@@ -301,47 +384,53 @@ export function CompetitorsPage() {
         />
 
         <div className="property-scoped-layout__content">
-          {hasPropertySelection && (
-            <div className="page-section">
-              {/* Benchmark is always the currently-selected property/properties —
-                  never manually chosen, never editable — so it's a single fixed
-                  fact card, not a KPI tile among equals. Switching the selected
-                  property (left filter panel) automatically switches this. With
-                  multiple properties selected, this stays exactly one card
-                  (never one per property) listing all of them. */}
-              <Card className="benchmark-property-card">
-                <Award size={16} strokeWidth={2} />
-                <span className="benchmark-property-card__label">
-                  {selectedProperties.length > 1 ? "Benchmark Properties" : "Benchmark Property"}:
-                </span>
-                <span className="benchmark-property-card__value">
-                  {selectedProperty ? selectedProperty.name : selectedProperties.map((p) => p.name).join(", ")}
-                </span>
-              </Card>
-              <div className="stat-row stat-row--kpi" style={{ marginTop: "var(--space-3)" }}>
-                <Card className="stat-card">
-                  <div className="stat-card__icon"><Users2 size={20} strokeWidth={2} /></div>
-                  <div className="stat-card__body"><div className="stat-card__value tabular">{summary.total}</div><div className="stat-card__label">Competitors</div></div>
+          {/* Always rendered (never a hard mount/unmount) and collapsed via the
+              same CSS-grid-row trick FilterAccordionSection uses, so toggling
+              property selection animates this block open/closed instead of
+              snapping the table position up/down. */}
+          <div className={`kpi-collapse ${hasPropertySelection ? "kpi-collapse--open" : ""}`}>
+            <div className="kpi-collapse__inner">
+              <div className="page-section">
+                {/* Benchmark is always the currently-selected property/properties —
+                    never manually chosen, never editable — so it's a single fixed
+                    fact card, not a KPI tile among equals. Switching the selected
+                    property (left filter panel) automatically switches this. With
+                    multiple properties selected, this stays exactly one card
+                    (never one per property) listing all of them. */}
+                <Card className="benchmark-property-card">
+                  <Award size={16} strokeWidth={2} />
+                  <span className="benchmark-property-card__label">
+                    {selectedProperties.length > 1 ? "Benchmark Properties" : "Benchmark Property"}:
+                  </span>
+                  <span className="benchmark-property-card__value">
+                    {selectedProperty ? selectedProperty.name : selectedProperties.map((p) => p.name).join(", ")}
+                  </span>
                 </Card>
-                <Card className="stat-card">
-                  <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.roomMappingPct)}`} style={{ "--ring-pct": summary.roomMappingPct }}><span className="kpi-ring__value tabular">{summary.roomMappingPct}%</span></div>
-                  <div className="stat-card__body"><div className="stat-card__label">Room Mapping</div></div>
-                </Card>
-                <Card className="stat-card">
-                  <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.ratePlanMappingPct)}`} style={{ "--ring-pct": summary.ratePlanMappingPct }}><span className="kpi-ring__value tabular">{summary.ratePlanMappingPct}%</span></div>
-                  <div className="stat-card__body"><div className="stat-card__label">Rate Plan Mapping</div></div>
-                </Card>
-                <Card className="stat-card">
-                  <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.sourceCoveragePct)}`} style={{ "--ring-pct": summary.sourceCoveragePct }}><span className="kpi-ring__value tabular">{summary.sourceCoveragePct}%</span></div>
-                  <div className="stat-card__body"><div className="stat-card__label">Source Coverage</div></div>
-                </Card>
-                <Card className="stat-card">
-                  <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.readiness)}`} style={{ "--ring-pct": summary.readiness }}><span className="kpi-ring__value tabular">{summary.readiness}%</span></div>
-                  <div className="stat-card__body"><div className="stat-card__label">Readiness</div></div>
-                </Card>
+                <div className="stat-row stat-row--kpi" style={{ marginTop: "var(--space-3)" }}>
+                  <Card className="stat-card">
+                    <div className="stat-card__icon"><Users2 size={20} strokeWidth={2} /></div>
+                    <div className="stat-card__body"><div className="stat-card__value tabular">{summary.total}</div><div className="stat-card__label">Competitors</div></div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.roomMappingPct)}`} style={{ "--ring-pct": summary.roomMappingPct }}><span className="kpi-ring__value tabular">{summary.roomMappingPct}%</span></div>
+                    <div className="stat-card__body"><div className="stat-card__label">Room Mapping</div></div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.ratePlanMappingPct)}`} style={{ "--ring-pct": summary.ratePlanMappingPct }}><span className="kpi-ring__value tabular">{summary.ratePlanMappingPct}%</span></div>
+                    <div className="stat-card__body"><div className="stat-card__label">Rate Plan Mapping</div></div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.sourceCoveragePct)}`} style={{ "--ring-pct": summary.sourceCoveragePct }}><span className="kpi-ring__value tabular">{summary.sourceCoveragePct}%</span></div>
+                    <div className="stat-card__body"><div className="stat-card__label">Source Coverage</div></div>
+                  </Card>
+                  <Card className="stat-card">
+                    <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.readiness)}`} style={{ "--ring-pct": summary.readiness }}><span className="kpi-ring__value tabular">{summary.readiness}%</span></div>
+                    <div className="stat-card__body"><div className="stat-card__label">Readiness</div></div>
+                  </Card>
+                </div>
               </div>
             </div>
-          )}
+          </div>
 
           <Card padded={false}>
             <div style={{ padding: "20px 20px 0" }}>
@@ -418,80 +507,28 @@ export function CompetitorsPage() {
                 }
                 renderRow={(c) => {
                   const readiness = readinessByCompetitor.get(c.id);
-                  const groups = groupsForCompetitor(c.id);
-                  const hasRoomMapping = data.roomMappings.some((m) => m.competitorId === c.id);
-                  const hasRatePlanMapping = data.ratePlanMappings.some((m) => m.competitorId === c.id);
-                  const hasSource = data.sourceConfigs.some((s) => s.competitorId === c.id && s.sourceUrl);
-                  const readinessScore = readiness?.score ?? 0;
-                  const readinessVariant = readinessScore === 100 ? "success" : readinessScore >= 50 ? "warning" : "danger";
-                  const visibleGroups = groups.slice(0, 2);
-                  const overflowGroups = groups.slice(2);
                   return (
-                    <tr key={c.id}>
-                      <td><Checkbox checked={selection.selected.includes(c.id)} onChange={() => selection.toggle(c.id)} label={`Select ${c.propertyName}`} /></td>
-                      <td className="row-link" onClick={() => navigate(`/portal/competitors/${c.id}`)}>
-                        <div className="table__cell-primary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.propertyName}</div>
-                        {/* Only shown when competitors from more than one benchmark property are
-                            visible together — with a single benchmark it's already shown once above
-                            in the "Benchmark Property" stat card, so repeating it per row is noise. */}
-                        {benchmarkPropertyIdsInScope.size > 1 && (
-                          <div className="table__cell-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{propertyName(c.propertyId)}</div>
-                        )}
-                      </td>
-                      <td className="table__cell-muted" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.city}</td>
-                      <td className="tabular" style={{ whiteSpace: "nowrap" }}>{c.starRating ? `${c.starRating}★` : "—"}</td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        {groups.length === 0 ? (
-                          <span className="table__cell-muted">No comp set</span>
-                        ) : (
-                          <div className="tag-chips">
-                            {visibleGroups.map((g) => (
-                              <span key={g.id} className="tag-chip tag-chip--removable" title={g.name}>
-                                <span className="tag-chip__label">{g.name}</span>
-                                <button type="button" onClick={() => handleRemoveFromGroup(c.id, g.id, g.name)} aria-label={`Remove from ${g.name}`}><X size={10} strokeWidth={2.5} /></button>
-                              </span>
-                            ))}
-                            {overflowGroups.length > 0 && (
-                              <span className="tag-chip tag-chip--more" title={overflowGroups.map((g) => g.name).join(", ")}>
-                                +{overflowGroups.length}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <Badge variant={hasRoomMapping ? "success" : "warning"}><BedDouble size={10} strokeWidth={2} style={{ marginRight: 2, verticalAlign: -1 }} />{hasRoomMapping ? "Mapped" : "None"}</Badge>
-                      </td>
-                      <td style={{ whiteSpace: "nowrap" }}>
-                        <Badge variant={hasRatePlanMapping ? "success" : "warning"}><TagIcon size={10} strokeWidth={2} style={{ marginRight: 2, verticalAlign: -1 }} />{hasRatePlanMapping ? "Mapped" : "None"}</Badge>
-                      </td>
-                      <td style={{ whiteSpace: "nowrap" }}><Badge variant={hasSource ? "success" : "warning"}><PlugZap size={10} strokeWidth={2} style={{ marginRight: 2, verticalAlign: -1 }} />{hasSource ? "Configured" : "None"}</Badge></td>
-                      <td>
-                        <div className={`kpi-ring kpi-ring--sm kpi-ring--${readinessVariant}`} style={{ "--ring-pct": readinessScore }} title={`${readinessScore}% ready`}>
-                          <span className="kpi-ring__value tabular">{readinessScore}</span>
-                        </div>
-                      </td>
-                      <td style={{ whiteSpace: "nowrap" }}><StatusBadge status={c.status} /></td>
-                      <td className="table__cell-muted tabular" style={{ whiteSpace: "nowrap" }}>{formatDate(c.lastModifiedAt)}</td>
-                      <td>
-                        <div className="table__actions table__actions--reveal">
-                          {c.status !== "Archived" ? (
-                            <>
-                              <button className="table__action-btn" title="Edit" onClick={() => openEdit(c)}><Pencil size={15} strokeWidth={2} /></button>
-                              <button className="table__action-btn" title="Duplicate" onClick={() => handleDuplicate(c)}><Copy size={15} strokeWidth={2} /></button>
-                              <button className="table__action-btn" title="Archive" onClick={() => handleArchive(c)}><Archive size={15} strokeWidth={2} /></button>
-                            </>
-                          ) : (
-                            <>
-                              <button className="table__action-btn" title="Restore" onClick={() => data.restoreCompetitor(c)}><RotateCcw size={15} strokeWidth={2} /></button>
-                              {permissions.canManageCompetitors && (
-                                <button className="table__action-btn table__action-btn--danger" title="Delete Permanently" onClick={() => setConfirmDelete(c)}><Trash2 size={15} strokeWidth={2} /></button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                    <CompetitorTableRow
+                      key={c.id}
+                      competitor={c}
+                      benchmarkPropertyName={propertyName(c.propertyId)}
+                      showBenchmarkName={benchmarkPropertyIdsInScope.size > 1}
+                      groups={groupsForCompetitor(c.id)}
+                      hasRoomMapping={data.roomMappings.some((m) => m.competitorId === c.id)}
+                      hasRatePlanMapping={data.ratePlanMappings.some((m) => m.competitorId === c.id)}
+                      hasSource={data.sourceConfigs.some((s) => s.competitorId === c.id && s.sourceUrl)}
+                      readinessScore={readiness?.score ?? 0}
+                      selected={selection.selected.includes(c.id)}
+                      onToggleSelect={selection.toggle}
+                      onOpen={(id) => navigate(`/portal/competitors/${id}`)}
+                      onRemoveFromGroup={handleRemoveFromGroup}
+                      onEdit={openEdit}
+                      onDuplicate={handleDuplicate}
+                      onArchive={handleArchive}
+                      onRestore={(competitor) => data.restoreCompetitor(competitor)}
+                      onDeleteRequest={setConfirmDelete}
+                      canManageCompetitors={permissions.canManageCompetitors}
+                    />
                   );
                 }}
               />
