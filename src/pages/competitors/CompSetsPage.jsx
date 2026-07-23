@@ -22,11 +22,10 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { useAppSettings } from "../../context/AppSettingsContext.jsx";
 import { usePaginatedSortedFiltered, formatDate } from "../../lib/format.js";
 import { computeCompetitorReadiness } from "../../lib/competitorReadiness.js";
 import { CompSetForm } from "./CompSetForm.jsx";
-
-const PAGE_SIZE = 10;
 
 const VIEW_TABS = [
   { key: "active", label: "Active" },
@@ -58,6 +57,8 @@ export function CompSetsPage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeTargetId, setMergeTargetId] = useState(null);
+  const { table: tablePrefs } = useAppSettings();
+  const PAGE_SIZE = tablePrefs.pageSize;
 
   const hasPropertySelection = selectedPropertyIds.length > 0;
   const selectedProperties = useMemo(() => data.properties.filter((p) => selectedPropertyIds.includes(p.id)), [data.properties, selectedPropertyIds]);
@@ -138,7 +139,7 @@ export function CompSetsPage() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    [compSetsInView, search, sortKey, sortDir, page]
+    [compSetsInView, search, sortKey, sortDir, page, PAGE_SIZE]
   );
 
   const visibleIds = pageData.map((g) => g.id);
@@ -146,7 +147,7 @@ export function CompSetsPage() {
 
   const columns = [
     { key: "select", label: <Checkbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="Select all" />, width: 40 },
-    { key: "id", label: "Comp Set ID", sortable: true, width: 96 },
+    ...(tablePrefs.showIdColumn ? [{ key: "id", label: "Comp Set ID", sortable: true, width: 96 }] : []),
     { key: "name", label: "Competitive Set", sortable: true },
     { key: "property", label: "Property", width: 130 },
     { key: "members", label: "Members", width: 84 },
@@ -304,7 +305,7 @@ export function CompSetsPage() {
                   return (
                   <tr key={g.id}>
                     <td><Checkbox checked={selection.selected.includes(g.id)} onChange={() => selection.toggle(g.id)} label={`Select ${g.name}`} /></td>
-                    <td className="tabular table__cell-muted" style={{ whiteSpace: "nowrap" }}>{g.id}</td>
+                    {tablePrefs.showIdColumn && <td className="tabular table__cell-muted" style={{ whiteSpace: "nowrap" }}>{g.id}</td>}
                     <td className="row-link" onClick={() => navigate(`/portal/comp-sets/${g.id}`)}>
                       <div className="table__cell-primary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</div>
                       <div className="table__cell-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.market || "—"}</div>

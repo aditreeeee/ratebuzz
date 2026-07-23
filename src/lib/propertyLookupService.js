@@ -2,13 +2,13 @@
 // swapped for a real ASP.NET API call (e.g. GET /api/properties/{id}) against
 // the eGlobe Solutions SQL Server database without changing callers.
 
-const PROPERTY_ID_PATTERN = /^PROP-\d{4,}$/i;
-
+// No fixed ID format is enforced here on purpose — there's no backend/database
+// generating IDs in a specific shape yet, so requiring a hardcoded pattern
+// (e.g. "PROP-1001") only produces false validation errors for perfectly
+// reasonable IDs. Any non-empty value is accepted; `lookupPropertyById` below
+// is what actually determines whether it matches a real property.
 export function validatePropertyIdFormat(id) {
   if (!id || !id.trim()) return { valid: false, message: "Property ID is required." };
-  if (!PROPERTY_ID_PATTERN.test(id.trim())) {
-    return { valid: false, message: "Expected format: PROP-1001." };
-  }
   return { valid: true, message: "" };
 }
 

@@ -9,20 +9,25 @@ import { useData } from "../../context/DataContext.jsx";
 import { PRIORITY_LEVELS } from "../../mocks/competitors.js";
 import { STATUSES } from "../../mocks/properties.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { SOURCE_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
-function buildEmpty(sourceTypes) {
+function buildEmpty(sourceTypes, defaultPriority) {
   return {
     sourceType: sourceTypes[0]?.name || "",
-    sourceName: "", sourceUrl: "", priority: "Medium", status: "Draft", notes: "",
+    sourceName: "", sourceUrl: "", priority: defaultPriority || "Medium", status: "Draft", notes: "",
     xpath: "", cssSelector: "", apiEndpoint: "", authRequired: false, parserVersion: "",
     lastCheckedAt: null, lastCheckStatus: "", lastCheckError: "",
   };
 }
 
-function validate(form) {
+// Settings → Configuration Settings → Sources → "Require HTTPS" real effect:
+// a plain http:// source URL is rejected when enabled, not just any http(s).
+function validate(form, { requireHttps } = {}) {
   const errors = {};
   if (!form.sourceName || !form.sourceName.trim()) errors.sourceName = "Source name is required.";
   if (!form.sourceUrl || !form.sourceUrl.trim()) errors.sourceUrl = "Source URL is required.";
+  else if (requireHttps && !/^https:\/\/.+/i.test(form.sourceUrl)) errors.sourceUrl = "Must start with https:// (Require HTTPS is enabled in Settings).";
   else if (!/^https?:\/\/.+/i.test(form.sourceUrl)) errors.sourceUrl = "Must start with http:// or https://";
   return errors;
 }
@@ -44,13 +49,14 @@ function validate(form) {
 export function SourceConfigForm({ open, onClose, onSubmit, initial, competitorName }) {
   const data = useData();
   const sourceTypes = data.masters.sourceTypes || [];
-  const [form, setForm] = useState(initial || buildEmpty(sourceTypes));
+  const [sourceSettings] = usePersistedState("settings.competitors.sources", SOURCE_SETTINGS_DEFAULTS);
+  const [form, setForm] = useState(initial || buildEmpty(sourceTypes, sourceSettings.defaultPriority));
   const [errors, setErrors] = useState({});
   const [manageOpen, setManageOpen] = useState(false);
   const baselineRef = useRef(form);
 
   useEffect(() => {
-    const baseline = initial ? { ...buildEmpty(sourceTypes), ...initial } : buildEmpty(sourceTypes);
+    const baseline = initial ? { ...buildEmpty(sourceTypes), ...initial } : buildEmpty(sourceTypes, sourceSettings.defaultPriority);
     setForm(baseline);
     setErrors({});
     baselineRef.current = baseline;
@@ -65,7 +71,7 @@ export function SourceConfigForm({ open, onClose, onSubmit, initial, competitorN
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const validationErrors = validate(form);
+    const validationErrors = validate(form, { requireHttps: sourceSettings.requireHttps });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) return;
     onSubmit(form);
@@ -100,7 +106,7 @@ export function SourceConfigForm({ open, onClose, onSubmit, initial, competitorN
             </Field>
           </div>
           <div className="form-grid__full">
-            <Field label="Source URL" required id="src-url" error={errors.sourceUrl}>
+            <Field label="Source URL" required id="src-url" error={errors.sourceUrl} hint={sourceSettings.requireHttps ? "HTTPS is required (Settings → Configuration Settings → Sources)." : undefined}>
               <Input id="src-url" value={form.sourceUrl} onChange={set("sourceUrl")} placeholder="https://..." />
             </Field>
           </div>

@@ -1,15 +1,18 @@
-import React, { useState } from "react";
-import { PlugZap, Save } from "lucide-react";
+import React from "react";
+import { PlugZap, Save, RotateCcw } from "lucide-react";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field, Input, Select } from "../../components/ui/Input.jsx";
 import { Badge } from "../../components/ui/Badge.jsx";
 import { Button } from "../../components/ui/Button.jsx";
+import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { FIELD_LABELS, ENVIRONMENTS } from "../../mocks/integrations.js";
-import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { useSettingsForm } from "../../hooks/useSettingsForm.js";
 
 const EMPTY_VALUES = {
   apiBaseUrl: "", apiKey: "", clientId: "", clientSecret: "",
   accessToken: "", username: "", password: "", environment: ENVIRONMENTS[0],
+  configured: false,
 };
 
 const INPUT_TYPES = {
@@ -19,23 +22,24 @@ const INPUT_TYPES = {
   password: "password",
 };
 
+// Entered values now persist across refresh (previously reset to blank on
+// every mount) — "Configured (local)" reflects that persisted state, not
+// just the current session. Test Connection stays disabled: it honestly
+// requires a live backend this preview doesn't have, so it's not a silent
+// placeholder — it's a clearly-labeled unavailable action.
 export function IntegrationCard({ definition }) {
-  const [values, setValues] = useState(EMPTY_VALUES);
-  const [saved, setSaved] = useState(false);
-  const toast = useToast();
-
-  const set = (key) => (e) => {
-    setSaved(false);
-    setValues((v) => ({ ...v, [key]: e.target.value }));
-  };
+  const [saved, setSaved] = usePersistedState(`settings.integrations.${definition.key}`, EMPTY_VALUES);
+  const { draft, set, isDirty, save, reset, confirmOpen, requestAction, confirmDiscard, cancelDiscard } = useSettingsForm(
+    saved, setSaved, EMPTY_VALUES
+  );
 
   const handleSave = (e) => {
     e.preventDefault();
-    setSaved(true);
-    toast.success(`${definition.name} configuration saved.`);
+    setSaved({ ...draft, configured: true });
   };
 
   return (
+    <>
     <Card>
       <div className="integration-card__header">
         <div className="integration-card__icon"><PlugZap size={18} strokeWidth={2} /></div>
@@ -43,7 +47,7 @@ export function IntegrationCard({ definition }) {
           <h3 className="integration-card__title">{definition.name}</h3>
           <p className="integration-card__desc">{definition.description}</p>
         </div>
-        <Badge variant={saved ? "success" : "warning"}>{saved ? "Configured (local)" : "Not Configured"}</Badge>
+        <Badge variant={saved.configured ? "success" : "warning"}>{saved.configured ? "Configured (local)" : "Not Configured"}</Badge>
       </div>
 
       <form onSubmit={handleSave} className="integration-card__form">
@@ -53,7 +57,7 @@ export function IntegrationCard({ definition }) {
               <Select
                 id={`${definition.key}-environment`}
                 options={ENVIRONMENTS}
-                value={values.environment}
+                value={draft.environment}
                 onChange={set("environment")}
               />
             </Field>
@@ -63,7 +67,7 @@ export function IntegrationCard({ definition }) {
               <Input
                 id={`${definition.key}-${f}`}
                 type={INPUT_TYPES[f] || "text"}
-                value={values[f]}
+                value={draft[f]}
                 onChange={set(f)}
                 placeholder={`Enter ${FIELD_LABELS[f]}`}
                 autoComplete="off"
@@ -74,9 +78,24 @@ export function IntegrationCard({ definition }) {
 
         <div className="integration-card__footer">
           <Button variant="ghost" size="sm" icon={PlugZap} disabled type="button" title="Requires a live backend — not available in this preview">Test Connection</Button>
-          <Button variant="primary" size="sm" icon={Save} type="submit">Save Configuration</Button>
+          {isDirty && (
+            <button className="btn btn--ghost btn--sm" type="button" onClick={reset}>
+              <RotateCcw size={14} strokeWidth={2} /> Reset
+            </button>
+          )}
+          <Button variant="primary" size="sm" icon={Save} type="submit" disabled={!isDirty}>Save Configuration</Button>
         </div>
       </form>
     </Card>
+    <ConfirmModal
+      open={confirmOpen}
+      onClose={cancelDiscard}
+      onConfirm={confirmDiscard}
+      title="Unsaved Changes"
+      message="You have unsaved changes. Discard them and continue?"
+      confirmLabel="Discard Changes"
+      danger
+    />
+    </>
   );
 }

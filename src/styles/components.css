@@ -289,6 +289,8 @@
 
 /* ===== Toast ===== */
 .toast-viewport { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 200; }
+/* Notifications Settings' Position control. */
+.toast-viewport--top-right { top: 24px; bottom: auto; }
 .toast { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-lg); border: 1px solid var(--color-border); min-width: 280px; font-size: 13px; font-weight: 600; animation: toastIn 260ms var(--ease-spring); }
 .toast--success { color: var(--color-success); border-color: #bfe8d7; }
 .toast--success svg { animation: checkPop 360ms var(--ease-spring); }
@@ -645,15 +647,17 @@
 .current-price-card__stat span { font-size: 11.5px; opacity: 0.75; }
 .current-price-card__stat strong { font-size: 20px; font-weight: 800; }
 
-/* Pricing Ranges inline-editable grid */
+/* Pricing Ranges — redesigned as a repeatable card list (same shell as
+   .rate-plan-room-card below) instead of a dense table, for visual
+   consistency with the rest of the app's forms. */
 .pricing-ranges-table__error {
   display: flex; align-items: center; gap: 6px;
   font-size: 12.5px; font-weight: 600; color: var(--color-danger);
   background: var(--color-danger-bg); border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3);
 }
-.pricing-ranges-table__row--conflict td { background: var(--color-danger-bg); }
-.pricing-ranges-table .input, .pricing-ranges-table .select { min-width: 90px; }
+.pricing-range-card--conflict { border-color: var(--color-danger); }
+.pricing-range-card--conflict .rate-plan-room-card__header { background: var(--color-danger-bg); }
 
 /* Rate Plan Room cards (RatePlanForm's Rooms tab) */
 .rate-plan-room-card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); margin-bottom: var(--space-4); overflow: hidden; }

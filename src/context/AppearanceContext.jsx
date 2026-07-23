@@ -9,7 +9,7 @@ export const ACCENTS = [
   { name: "Surf", value: "#00b4d8" },
 ];
 
-const DEFAULTS = { density: "Comfortable", accent: ACCENTS[1].value };
+const DEFAULTS = { density: "Comfortable", accent: ACCENTS[1].value, reduceMotion: false };
 
 function loadStored() {
   try {
@@ -19,6 +19,7 @@ function loadStored() {
     return {
       density: DENSITIES.includes(parsed.density) ? parsed.density : DEFAULTS.density,
       accent: ACCENTS.some((a) => a.value === parsed.accent) ? parsed.accent : DEFAULTS.accent,
+      reduceMotion: typeof parsed.reduceMotion === "boolean" ? parsed.reduceMotion : DEFAULTS.reduceMotion,
     };
   } catch {
     return DEFAULTS;
@@ -39,12 +40,14 @@ function shade(hex, amount) {
 // Every component in the app reads --color-teal / --color-surf / --color-twilight
 // directly (no indirection token), so re-pointing those three CSS variables at the
 // chosen accent is enough to re-skin every button, badge, focus ring, etc. live.
-function applyAppearance({ density, accent }) {
+function applyAppearance({ density, accent, reduceMotion }) {
   const root = document.documentElement;
   root.dataset.density = density === "Compact" ? "compact" : "comfortable";
   root.style.setProperty("--color-teal", accent);
   root.style.setProperty("--color-surf", shade(accent, 0.35));
   root.style.setProperty("--color-twilight", shade(accent, -0.35));
+  if (reduceMotion) root.dataset.motion = "reduced";
+  else delete root.dataset.motion;
 }
 
 const AppearanceContext = createContext(null);
@@ -61,8 +64,10 @@ export function AppearanceProvider({ children }) {
     () => ({
       density: state.density,
       accent: state.accent,
+      reduceMotion: state.reduceMotion,
       setDensity: (density) => setState((s) => ({ ...s, density })),
       setAccent: (accent) => setState((s) => ({ ...s, accent })),
+      setReduceMotion: (reduceMotion) => setState((s) => ({ ...s, reduceMotion })),
       resetAppearance: () => setState(DEFAULTS),
     }),
     [state]

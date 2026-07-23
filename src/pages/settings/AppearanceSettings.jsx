@@ -3,11 +3,12 @@ import { Check, RotateCcw } from "lucide-react";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field, Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
+import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { useAppearance, ACCENTS, DENSITIES } from "../../context/AppearanceContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 
 export function AppearanceSettings() {
-  const { density, accent, setDensity, setAccent, resetAppearance } = useAppearance();
+  const { density, accent, reduceMotion, setDensity, setAccent, setReduceMotion, resetAppearance } = useAppearance();
   const toast = useToast();
 
   return (
@@ -43,7 +44,17 @@ export function AppearanceSettings() {
           </Field>
         </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ marginTop: "var(--space-6)" }}>
+        <FeatureChipGrid
+          label="Reduce Motion"
+          options={["Off", "On"]}
+          value={reduceMotion ? "On" : "Off"}
+          onChange={(v) => { setReduceMotion(v === "On"); toast.success(`Reduce Motion ${v === "On" ? "enabled" : "disabled"}.`); }}
+          multiple={false}
+          hint="Shortens or disables animations and transitions across the app."
+        />
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-6)" }}>
         <Button
           variant="ghost"
           size="md"

@@ -5,6 +5,8 @@ import {
 import { Modal } from "./Modal.jsx";
 import { Button } from "./Button.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { IMPORT_EXPORT_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
 const ENTITY_TYPES = [
   { key: "properties", label: "Properties", icon: Building2, requiredFields: ["name", "country", "city"] },
@@ -81,12 +83,17 @@ export function ImportWizard({ open, onClose, defaultEntityType = "properties" }
     }
   };
 
+  // Settings → Configuration Settings → Import & Export → Skip Invalid Rows:
+  // when off, an import can't proceed at all while any row has errors —
+  // when on (default), the valid rows import and invalid ones are skipped.
+  const [importExportSettings] = usePersistedState("settings.competitors.importExport", IMPORT_EXPORT_SETTINGS_DEFAULTS);
   const validated = rows.map((row, i) => {
     const missing = entity.requiredFields.filter((f) => !row[f]);
     return { row, index: i, valid: missing.length === 0, missing };
   });
   const validCount = validated.filter((v) => v.valid).length;
   const errorCount = validated.length - validCount;
+  const confirmBlocked = !importExportSettings.skipInvalidRows && errorCount > 0;
 
   // Single seam for later backend integration: swap this handler for a call
   // to the real .NET import endpoint (e.g. POST /api/{entityType}/import)
@@ -116,10 +123,10 @@ export function ImportWizard({ open, onClose, defaultEntityType = "properties" }
             <Button variant="primary" size="md" icon={ArrowRight} iconPosition="right" onClick={() => setStep(1)}>Next</Button>
           )}
           {step === 2 && (
-            <Button variant="primary" size="md" icon={ArrowRight} iconPosition="right" onClick={() => setStep(3)} disabled={!rows.length}>Next</Button>
+            <Button variant="primary" size="md" icon={ArrowRight} iconPosition="right" onClick={() => setStep(3)} disabled={!rows.length || confirmBlocked}>Next</Button>
           )}
           {step === 3 && (
-            <Button variant="primary" size="md" icon={CheckCircle2} onClick={handleConfirmImport} disabled={!validCount}>Confirm Import</Button>
+            <Button variant="primary" size="md" icon={CheckCircle2} onClick={handleConfirmImport} disabled={!validCount || confirmBlocked}>Confirm Import</Button>
           )}
         </>
       }
@@ -176,6 +183,12 @@ export function ImportWizard({ open, onClose, defaultEntityType = "properties" }
             <span className="wizard-validate__ok"><CheckCircle2 size={14} strokeWidth={2} /> {validCount} valid</span>
             <span className="wizard-validate__err"><AlertTriangle size={14} strokeWidth={2} /> {errorCount} with errors</span>
           </div>
+          {confirmBlocked && (
+            <p className="master-manager__hint" style={{ color: "var(--color-danger)", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertTriangle size={13} strokeWidth={2} /> "Skip Invalid Rows" is off (Settings → Configuration Settings → Import &amp; Export) —
+              fix every row's errors before this import can proceed.
+            </p>
+          )}
           <div className="table-scroll">
             <table className="table">
               <thead>

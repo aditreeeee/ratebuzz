@@ -26,13 +26,27 @@ function occupancyConflicts(a, b) {
   return occA === occB || occA === "" || occB === "";
 }
 
-// Returns an array of conflicting row-id pairs: [[idA, idB], ...].
+// Returns an array of conflicting row-id pairs: [[idA, idB], ...]. A row
+// explicitly marked "Always Applicable" is never flagged, against any other
+// row — that's the whole point of the flag (a deliberate, permanent
+// override), not something that should compete with date-scoped rows for
+// the same occupancy. Without this, two brand-new/unfilled rows (both
+// blank dates + blank "Any" occupancy by default) or an Always Applicable
+// row alongside a normal dated one would trip the overlap check before the
+// user has meaningfully entered anything — a false positive, not a genuine
+// conflict.
 export function findPricingPeriodConflicts(periods) {
   const conflicts = [];
   for (let i = 0; i < periods.length; i++) {
     for (let j = i + 1; j < periods.length; j++) {
       const a = periods[i];
       const b = periods[j];
+      if (a.alwaysApplicable || b.alwaysApplicable) continue;
+      // A row with no price entered yet is an unfilled draft, not a real
+      // pricing range — two blank new rows (both default to unbounded dates
+      // + "Any" occupancy) shouldn't be flagged as conflicting before the
+      // user has entered anything.
+      if (a.price === "" || a.price === null || b.price === "" || b.price === null) continue;
       if (occupancyConflicts(a, b) && rangesOverlap(a.startDate, a.endDate, b.startDate, b.endDate)) {
         conflicts.push([a.id, b.id]);
       }

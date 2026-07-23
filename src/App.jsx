@@ -5,6 +5,7 @@ import { DataProvider } from "./context/DataContext.jsx";
 import { PropertyContextProvider } from "./context/PropertyContext.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
 import { AppearanceProvider } from "./context/AppearanceContext.jsx";
+import { AppSettingsProvider } from "./context/AppSettingsContext.jsx";
 import { AuthGuard } from "./components/layout/AuthGuard.jsx";
 import { PortalLayout } from "./components/layout/PortalLayout.jsx";
 import { Login } from "./pages/index.jsx";
@@ -23,6 +24,7 @@ import { CompSetProfilePage } from "./pages/competitors/CompSetProfilePage.jsx";
 export default function App() {
   return (
     <AppearanceProvider>
+    <AppSettingsProvider>
     <AuthProvider>
       <DataProvider>
         <PropertyContextProvider>
@@ -58,6 +60,7 @@ export default function App() {
         </PropertyContextProvider>
       </DataProvider>
     </AuthProvider>
+    </AppSettingsProvider>
     </AppearanceProvider>
   );
 }

@@ -25,14 +25,15 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { useAppSettings } from "../../context/AppSettingsContext.jsx";
 import { formatDate } from "../../lib/format.js";
 import { computeCompetitorReadiness, readinessBucket } from "../../lib/competitorReadiness.js";
 import { PRIORITY_LEVELS } from "../../mocks/competitors.js";
+import { DEFAULT_FILTERS_DEFAULTS } from "../../lib/appSettingsStore.js";
+import { IMPORT_EXPORT_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 import { CompetitorForm } from "./CompetitorForm.jsx";
 import { CompSetAssignModal } from "./CompSetAssignModal.jsx";
 import { CompSetManagerModal } from "./CompSetManagerModal.jsx";
-
-const PAGE_SIZE = 10;
 
 function kpiRingVariant(pct) {
   return pct === 100 ? "success" : pct === 0 ? "danger" : "warning";
@@ -45,7 +46,7 @@ function kpiRingVariant(pct) {
 // by React.memo's shallow check.
 const CompetitorTableRow = memo(function CompetitorTableRow({
   competitor, benchmarkPropertyName, showBenchmarkName, groups, hasRoomMapping, hasRatePlanMapping, hasSource,
-  readinessScore, selected, onToggleSelect, onOpen, onRemoveFromGroup,
+  readinessScore, selected, onToggleSelect, onOpen, onRemoveFromGroup, showId,
   onEdit, onDuplicate, onArchive, onRestore, onDeleteRequest, canManageCompetitors,
 }) {
   const c = competitor;
@@ -55,6 +56,7 @@ const CompetitorTableRow = memo(function CompetitorTableRow({
   return (
     <tr>
       <td><Checkbox checked={selected} onChange={() => onToggleSelect(c.id)} label={`Select ${c.propertyName}`} /></td>
+      {showId && <td className="tabular table__cell-muted">{c.id}</td>}
       <td className="row-link" onClick={() => onOpen(c.id)}>
         <div className="table__cell-primary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.propertyName}</div>
         {/* Only shown when competitors from more than one benchmark property are
@@ -140,11 +142,17 @@ export function CompetitorsPage() {
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = usePersistedState("competitors.compSetFilter", []);
-  const [statusFilter, setStatusFilter] = usePersistedState("competitors.statusFilter", []);
+  const [defaultFilters] = usePersistedState("settings.defaultFilters", DEFAULT_FILTERS_DEFAULTS);
+  const [statusFilter, setStatusFilter] = usePersistedState(
+    "competitors.statusFilter",
+    defaultFilters.competitorsStatus && defaultFilters.competitorsStatus !== "All" ? [defaultFilters.competitorsStatus] : []
+  );
   const [readinessFilter, setReadinessFilter] = usePersistedState("competitors.readinessFilter", []);
   const [sortKey, setSortKey] = usePersistedState("competitors.sortKey", "propertyName");
   const [sortDir, setSortDir] = usePersistedState("competitors.sortDir", "asc");
   const [page, setPage] = useState(1);
+  const { table: tablePrefs } = useAppSettings();
+  const PAGE_SIZE = tablePrefs.pageSize;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -210,20 +218,29 @@ export function CompetitorsPage() {
   // always reflects whatever CRUD just happened. There's no "Benchmarks"
   // count here: the benchmark is always the property itself (never a
   // competitor), so it's shown as a fixed reference tile instead of a metric.
+  // Comparison Rules → Minimum Competitors' real effect: below that count,
+  // the overall Readiness KPI is capped by averaging in a hard 0 for "meets
+  // the minimum" — a property can't reach 100% readiness on well-mapped
+  // competitors alone if it doesn't have enough of them.
+  const { minCompetitors } = useAppSettings().comparisonRules;
   const summary = useMemo(() => {
     const active = competitorsInScope.filter((c) => c.status !== "Archived");
     const roomMapped = active.filter((c) => data.roomMappings.some((m) => m.competitorId === c.id)).length;
     const ratePlanMapped = active.filter((c) => data.ratePlanMappings.some((m) => m.competitorId === c.id)).length;
     const sourceConfigured = active.filter((c) => data.sourceConfigs.some((s) => s.competitorId === c.id && s.sourceUrl)).length;
-    const avgReadiness = active.length ? Math.round(active.reduce((sum, c) => sum + (readinessByCompetitor.get(c.id)?.score || 0), 0) / active.length) : 0;
+    const avgMappingReadiness = active.length ? Math.round(active.reduce((sum, c) => sum + (readinessByCompetitor.get(c.id)?.score || 0), 0) / active.length) : 0;
+    const meetsMinimumCompetitors = active.length >= minCompetitors;
+    const avgReadiness = active.length ? Math.round((avgMappingReadiness + (meetsMinimumCompetitors ? 100 : 0)) / 2) : 0;
     return {
       total: active.length,
       roomMappingPct: active.length ? Math.round((roomMapped / active.length) * 100) : 0,
       ratePlanMappingPct: active.length ? Math.round((ratePlanMapped / active.length) * 100) : 0,
       sourceCoveragePct: active.length ? Math.round((sourceConfigured / active.length) * 100) : 0,
       readiness: avgReadiness,
+      meetsMinimumCompetitors,
+      minCompetitors,
     };
-  }, [competitorsInScope, data.roomMappings, data.ratePlanMappings, data.sourceConfigs, readinessByCompetitor]);
+  }, [competitorsInScope, data.roomMappings, data.ratePlanMappings, data.sourceConfigs, readinessByCompetitor, minCompetitors]);
 
   const competitorsFiltered = useMemo(() => {
     let result = statusFilter.length ? competitorsInScope.filter((c) => statusFilter.includes(c.status)) : competitorsInScope.filter((c) => c.status !== "Archived");
@@ -257,7 +274,7 @@ export function CompetitorsPage() {
   ]);
 
   const total = competitorsFiltered.length;
-  const pageData = useMemo(() => competitorsFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [competitorsFiltered, page]);
+  const pageData = useMemo(() => competitorsFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [competitorsFiltered, page, PAGE_SIZE]);
 
   const filtersActive = Boolean(search) || [groupFilter, statusFilter, readinessFilter].some((f) => f.length);
   const resetFilters = () => {
@@ -286,6 +303,7 @@ export function CompetitorsPage() {
   // Mapping and Source Status get enough room for their badge to never wrap.
   const columns = [
     { key: "select", label: <Checkbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="Select all" />, width: 40 },
+    ...(tablePrefs.showIdColumn ? [{ key: "id", label: "Competitor ID", width: 110 }] : []),
     { key: "propertyName", label: "Competitor Property", sortable: true },
     { key: "city", label: "City", sortable: true, width: 88 },
     { key: "starRating", label: "Star", sortable: true, width: 60 },
@@ -359,7 +377,13 @@ export function CompetitorsPage() {
     { label: "Status", value: (c) => c.status },
     { label: "Last Updated", value: (c) => formatDate(c.lastModifiedAt) },
   ];
-  const exportRowsData = selection.count ? competitorsFiltered.filter((c) => selection.selected.includes(c.id)) : pageData;
+  // Settings → Configuration Settings → Import & Export → Include Archived's
+  // real effect: with nothing explicitly selected, export ignores the
+  // "active only" default filter and includes every in-scope competitor.
+  const [importExportSettings] = usePersistedState("settings.competitors.importExport", IMPORT_EXPORT_SETTINGS_DEFAULTS);
+  const exportRowsData = selection.count
+    ? competitorsFiltered.filter((c) => selection.selected.includes(c.id))
+    : (importExportSettings.includeArchived ? competitorsInScope : pageData);
 
   const competitorCountForProperty = (propertyId) => data.competitors.filter((c) => c.propertyId === propertyId && c.status !== "Archived").length;
 
@@ -519,6 +543,7 @@ export function CompetitorsPage() {
                       hasSource={data.sourceConfigs.some((s) => s.competitorId === c.id && s.sourceUrl)}
                       readinessScore={readiness?.score ?? 0}
                       selected={selection.selected.includes(c.id)}
+                      showId={tablePrefs.showIdColumn}
                       onToggleSelect={selection.toggle}
                       onOpen={(id) => navigate(`/portal/competitors/${id}`)}
                       onRemoveFromGroup={handleRemoveFromGroup}

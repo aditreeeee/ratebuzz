@@ -17,6 +17,9 @@ import {
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+
+const ROOM_DEFAULTS_SETTINGS = { bedConfiguration: BED_CONFIGURATIONS[0], status: ROOM_STATUSES[0], maxOccupancy: 6 };
 
 const EMPTY = {
   name: "", description: "", propertyId: "", status: "Active",
@@ -31,7 +34,9 @@ const EMPTY = {
   suiteFeatures: [],
 };
 
-function validate(form, { skipProperty = false } = {}) {
+// `platformMaxOccupancy` is Settings → Defaults → Rooms' real effect: a hard
+// validation cap, not just a suggestion — a room can never be saved above it.
+function validate(form, { skipProperty = false, platformMaxOccupancy } = {}) {
   const errors = {};
   if (!skipProperty && !form.propertyId) errors.propertyId = "Property is required.";
   if (!form.name || !form.name.trim()) errors.name = "Room name is required.";
@@ -51,6 +56,8 @@ function validate(form, { skipProperty = false } = {}) {
   if (!errors.maxOccupancy && !errors.maxAdults && !errors.maxChildren) {
     if (Number(form.maxAdults) + Number(form.maxChildren) > Number(form.maxOccupancy)) {
       errors.maxOccupancy = "Max occupancy cannot be less than max adults + max children.";
+    } else if (platformMaxOccupancy && Number(form.maxOccupancy) > Number(platformMaxOccupancy)) {
+      errors.maxOccupancy = `Max occupancy cannot exceed the platform cap of ${platformMaxOccupancy} (Settings → Defaults → Rooms).`;
     }
   }
   return errors;
@@ -98,6 +105,9 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
   const [manageOpen, setManageOpen] = useState(null); // "roomTypes" | "amenities" | null
   const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
   const baselineRef = useRef(EMPTY);
+  // Settings → Defaults → Rooms: prefills a brand-new room's Bed
+  // Configuration/Status; Platform Max Occupancy is enforced in validate().
+  const [roomDefaults] = usePersistedState("settings.defaults.rooms", ROOM_DEFAULTS_SETTINGS);
 
   // Creating (not editing) with more than one property selected in the left
   // filter and no single scoped property means the room should be cloned
@@ -108,7 +118,13 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
   useEffect(() => {
     const baseline = initial
       ? { ...EMPTY, ...initial }
-      : { ...EMPTY, propertyId: scopePropertyId || "", roomType: roomTypeMaster[0]?.name || "" };
+      : {
+          ...EMPTY,
+          propertyId: scopePropertyId || "",
+          roomType: roomTypeMaster[0]?.name || "",
+          bedConfiguration: roomDefaults.bedConfiguration,
+          status: roomDefaults.status,
+        };
     setForm(baseline);
     setErrors({});
     setActive("overview");
@@ -150,7 +166,7 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
   const sectionHasError = (key) => (SECTION_FIELDS[key] || []).some((f) => errors[f]);
 
   const runValidation = () => {
-    const validationErrors = validate(form, { skipProperty: multiPropertyMode });
+    const validationErrors = validate(form, { skipProperty: multiPropertyMode, platformMaxOccupancy: roomDefaults.maxOccupancy });
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length > 0) {
       const firstErrorSection = sections.find((s) => (SECTION_FIELDS[s.key] || []).some((f) => validationErrors[f]));
@@ -324,8 +340,8 @@ export function RoomForm({ open, onClose, onSubmit, initial, properties = [], sc
                 <Field label="Maximum Infants" id="r-infants" modified={dirtyFields.has("maxInfants")}>
                   <Input id="r-infants" type="number" min="0" tabular value={form.maxInfants} onChange={setNum("maxInfants")} />
                 </Field>
-                <Field label="Maximum Occupancy" required id="r-maxocc" error={errors.maxOccupancy} modified={dirtyFields.has("maxOccupancy")}>
-                  <Input id="r-maxocc" type="number" min="1" tabular value={form.maxOccupancy} onChange={setNum("maxOccupancy")} required />
+                <Field label="Maximum Occupancy" required id="r-maxocc" error={errors.maxOccupancy} modified={dirtyFields.has("maxOccupancy")} hint={`Platform cap: ${roomDefaults.maxOccupancy} (Settings → Defaults → Rooms).`}>
+                  <Input id="r-maxocc" type="number" min="1" max={roomDefaults.maxOccupancy} tabular value={form.maxOccupancy} onChange={setNum("maxOccupancy")} required />
                 </Field>
                 <Field label="Base Occupancy" required id="r-baseocc" error={errors.baseOccupancy} modified={dirtyFields.has("baseOccupancy")}>
                   <Input id="r-baseocc" type="number" min="1" tabular value={form.baseOccupancy} onChange={setNum("baseOccupancy")} required />

@@ -631,25 +631,17 @@ export function DataProvider({ children }) {
       archiveRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp({ ...ratePlan, status: "Archived" }) }),
       restoreRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp({ ...ratePlan, status: "Active" }) }),
       deleteRatePlanPermanently: (id) => dispatch({ type: "DELETE_RATE_PLAN", payload: id }),
-      duplicateRatePlan: (ratePlan) => {
-        const copy = stamp({ ...ratePlan, id: nextId(state.ratePlans, "RP", 3000), name: `${ratePlan.name} (Copy)` });
-        dispatch({ type: "ADD_RATE_PLAN", payload: copy });
-        return copy;
-      },
+      // No duplicateRatePlan/bulkDuplicateRatePlans here on purpose: a Rate
+      // Plan is defined by its linked Rooms + Pricing Ranges, and a copy of
+      // just the RATE_PLANS row (the only thing this shape of duplicate
+      // could ever produce) would be a shell with no rooms/pricing — a
+      // broken, confusing "duplicate" rather than a useful one. Removed
+      // from the UI entirely rather than fixed, since a real fix would need
+      // to deep-clone RATE_PLAN_ROOMS/PRICING_RANGES too, which isn't what
+      // "Duplicate" is asked to do here.
       bulkArchiveRatePlans: (ids) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status: "Archived" }) }),
       bulkRestoreRatePlans: (ids) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status: "Active" }) }),
       bulkChangeStatusRatePlans: (ids, status) => dispatch({ type: "BULK_UPDATE_RATE_PLANS", ids, updater: (rp) => stamp({ ...rp, status }) }),
-      bulkDuplicateRatePlans: (ids) => {
-        const source = state.ratePlans.filter(inSet(ids));
-        let cursor = state.ratePlans;
-        const copies = source.map((rp) => {
-          const copy = stamp({ ...rp, id: nextId(cursor, "RP", 3000), name: `${rp.name} (Copy)` });
-          cursor = [copy, ...cursor];
-          return copy;
-        });
-        dispatch({ type: "BULK_ADD_RATE_PLANS", payload: copies });
-        return copies;
-      },
       bulkDeleteRatePlans: (ids) => dispatch({ type: "BULK_DELETE_RATE_PLANS", ids }),
 
       // Rate Plan Rooms — the room-specific layer beneath a Rate Plan. A

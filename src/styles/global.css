@@ -25,6 +25,25 @@ input, select, textarea { font-family: inherit; }
 a { color: inherit; }
 ::selection { background: var(--color-frosted); color: var(--color-twilight); }
 
+/* Display Preferences → "Reduce Motion" (AppearanceContext sets this
+   attribute) and the OS-level prefers-reduced-motion media query both land
+   here — every animation/transition in the app shortens to near-instant
+   instead of being individually special-cased per component. */
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

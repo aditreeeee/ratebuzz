@@ -21,6 +21,9 @@ export const ROLES = {
 // Settings module (General/Comparison Rules/Room Mapping/Rate Plan
 // Mapping/Sources & URL Validation/Import & Export live inside it via its
 // own nested tab bar), not a separate settings page/route.
+// "notifications"/"tablePreferences"/"defaultFilters" are no longer
+// top-level sections — they're sub-tabs inside "defaults" now
+// (DefaultsSettings.jsx), so granting "defaults" already covers them.
 const SETTINGS_SECTIONS_BY_ROLE = {
   [ROLES.SUPER_ADMIN]: ["general", "defaults", "competitorConfig", "integrations", "appearance"],
   [ROLES.PROPERTY_OWNER]: ["general", "defaults", "competitorConfig", "appearance"],

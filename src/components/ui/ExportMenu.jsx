@@ -2,15 +2,25 @@ import React, { useState, useRef, useEffect } from "react";
 import { Download, FileSpreadsheet, FileText, ChevronDown } from "lucide-react";
 import { exportRows } from "../../lib/exportUtils.js";
 import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { IMPORT_EXPORT_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
+
+const FORMAT_KEY = { CSV: "csv", Excel: "excel" };
 
 /**
  * Shared export control for Properties/Rooms/Rate Plans list pages.
  * `rows` should already reflect the caller's selected-or-filtered set.
+ * Settings → Configuration Settings → Import & Export → Default Export
+ * Format's real effect: clicking the main button exports immediately in
+ * that format — the dropdown (opened via the small chevron) still offers
+ * every format explicitly, for a one-off different choice.
  */
 export function ExportMenu({ rows, columns, filenameBase, selectedCount }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const toast = useToast();
+  const [importExportSettings] = usePersistedState("settings.competitors.importExport", IMPORT_EXPORT_SETTINGS_DEFAULTS);
+  const defaultFormatKey = FORMAT_KEY[importExportSettings.defaultFormat] || "csv";
 
   useEffect(() => {
     if (!open) return;
@@ -34,16 +44,26 @@ export function ExportMenu({ rows, columns, filenameBase, selectedCount }) {
   };
 
   return (
-    <div className="export-menu" ref={ref}>
+    <div className="export-menu" ref={ref} style={{ display: "flex" }}>
       <button
         type="button"
         className="btn btn--ghost btn--md"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
+        style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+        onClick={() => handle(defaultFormatKey)}
+        title={`Export as ${importExportSettings.defaultFormat} (default format — change in Settings)`}
       >
         <Download size={16} strokeWidth={2} />
         <span>Export{selectedCount ? ` (${selectedCount})` : ""}</span>
+      </button>
+      <button
+        type="button"
+        className="btn btn--ghost btn--md"
+        style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "1px solid var(--color-border)", padding: "0 8px" }}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Choose export format"
+      >
         <ChevronDown size={14} strokeWidth={2} />
       </button>
       {open && (

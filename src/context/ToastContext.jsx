@@ -1,23 +1,32 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
+import { useAppSettings } from "./AppSettingsContext.jsx";
+import { NOTIFICATION_DURATIONS } from "../lib/appSettingsStore.js";
 
 const ToastContext = createContext(null);
 let idCounter = 0;
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const { notifications } = useAppSettings();
 
   const remove = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  // Notifications Settings' master switch/duration are read at push-time
+  // (not baked into a stale closure) since `push` is recreated whenever
+  // `notifications` changes — turning notifications off genuinely suppresses
+  // every toast.* call app-wide, not just newly-written ones.
   const push = useCallback(
     (message, variant = "info") => {
+      if (!notifications.enabled) return;
       const id = ++idCounter;
       setToasts((prev) => [...prev, { id, message, variant }]);
-      setTimeout(() => remove(id), 3800);
+      const duration = NOTIFICATION_DURATIONS[notifications.duration] ?? NOTIFICATION_DURATIONS.Normal;
+      setTimeout(() => remove(id), duration);
     },
-    [remove]
+    [remove, notifications]
   );
 
   const toast = {
@@ -27,11 +36,12 @@ export function ToastProvider({ children }) {
   };
 
   const icons = { success: CheckCircle2, error: XCircle, info: Info };
+  const positionClass = notifications.position === "top-right" ? "toast-viewport--top-right" : "";
 
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="toast-viewport" role="status" aria-live="polite" aria-atomic="false">
+      <div className={`toast-viewport ${positionClass}`} role="status" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => {
           const Icon = icons[t.variant];
           return (

@@ -7,6 +7,8 @@ import { Checkbox } from "../../components/ui/Checkbox.jsx";
 import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { COMPETITOR_STATUSES, PRIORITY_LEVELS } from "../../mocks/competitors.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { COMPETITOR_GENERAL_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 import { CompSetImportModal } from "./CompSetImportModal.jsx";
 
 const EMPTY = {
@@ -50,7 +52,11 @@ function validate(form, { existingCompetitors = [], targetPropertyIds = [], excl
 // become one of the user's own managed properties; its only identifier is
 // its own `id` (Competitor ID), surfaced solely on its Details page.
 export function CompetitorForm({ open, onClose, onSubmit, initial, benchmarkProperties = [], existingCompetitors = [] }) {
-  const [form, setForm] = useState(initial || EMPTY);
+  // Settings → Configuration Settings → General: prefills a brand-new
+  // competitor's Priority.
+  const [competitorGeneralDefaults] = usePersistedState("settings.competitors.general", COMPETITOR_GENERAL_DEFAULTS);
+  const newCompetitorDefaults = { ...EMPTY, priority: competitorGeneralDefaults.defaultPriority };
+  const [form, setForm] = useState(initial || newCompetitorDefaults);
   const [errors, setErrors] = useState({});
   const [benchmarkPropertyIds, setBenchmarkPropertyIds] = useState([]);
   const [importOpen, setImportOpen] = useState(false);
@@ -67,7 +73,7 @@ export function CompetitorForm({ open, onClose, onSubmit, initial, benchmarkProp
   const distanceDisabled = targetPropertyIds.length > 1;
 
   useEffect(() => {
-    const baseline = initial ? { ...EMPTY, ...initial } : EMPTY;
+    const baseline = initial ? { ...EMPTY, ...initial } : newCompetitorDefaults;
     setForm(baseline);
     setErrors({});
     setBenchmarkPropertyIds(benchmarkProperties.map((p) => p.id));

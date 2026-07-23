@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Tag, MapPin, Pencil, Copy, Archive, RotateCcw, Trash2,
+  Tag, MapPin, Pencil, Archive, RotateCcw, Trash2,
   LayoutGrid, BedDouble, Layers, UtensilsCrossed, Ban,
   Percent, StickyNote, History,
 } from "lucide-react";
@@ -103,12 +103,6 @@ export function RatePlanProfilePage() {
     if (!opts?.keepOpen) setFormOpen(false);
   };
 
-  const handleDuplicate = () => {
-    const copy = data.duplicateRatePlan(ratePlan);
-    toast.info(`Duplicated as ${copy.id}.`);
-    navigate(`/portal/rate-plans/${copy.id}`);
-  };
-
   const handleArchive = () => { data.archiveRatePlan(ratePlan); toast.info(`${ratePlan.name} archived.`); };
   const handleRestore = () => { data.restoreRatePlan(ratePlan); toast.success(`${ratePlan.name} restored.`); };
   const handleDeletePermanently = () => {
@@ -147,7 +141,6 @@ export function RatePlanProfilePage() {
             </div>
           </div>
           <div className="profile-header__actions">
-            <Button variant="ghost" size="md" icon={Copy} onClick={handleDuplicate}>Duplicate</Button>
             {ratePlan.status !== "Archived" ? (
               <Button variant="ghost" size="md" icon={Archive} onClick={handleArchive}>Archive</Button>
             ) : (

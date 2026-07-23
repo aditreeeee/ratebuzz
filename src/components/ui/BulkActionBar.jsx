@@ -24,9 +24,11 @@ export function BulkActionBar({
             />
           </div>
         )}
-        <button className="bulk-bar__btn" onClick={onDuplicate}>
-          <Copy size={14} strokeWidth={2} /> Duplicate
-        </button>
+        {onDuplicate && (
+          <button className="bulk-bar__btn" onClick={onDuplicate}>
+            <Copy size={14} strokeWidth={2} /> Duplicate
+          </button>
+        )}
         {archived ? (
           <button className="bulk-bar__btn" onClick={onRestore}>
             <RotateCcw size={14} strokeWidth={2} /> Restore

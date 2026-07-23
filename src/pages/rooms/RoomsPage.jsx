@@ -23,11 +23,12 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { useAppSettings } from "../../context/AppSettingsContext.jsx";
 import { usePaginatedSortedFiltered } from "../../lib/format.js";
 import { ROOM_STATUSES } from "../../mocks/rooms.js";
 import { RoomForm } from "./RoomForm.jsx";
-
-const PAGE_SIZE = 10;
+import { DEFAULT_FILTERS_DEFAULTS } from "../../lib/appSettingsStore.js";
+import { IMPORT_EXPORT_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
 const BASE_COLUMNS = [
   { key: "id", label: "Room ID", sortable: true, width: 110 },
@@ -52,7 +53,7 @@ const VIEW_TABS = [
 // than the whole `data.properties` array + a lookup function) specifically
 // so its props stay comparable by React.memo's shallow check.
 const RoomTableRow = memo(function RoomTableRow({
-  room, propertyLabel, selected, onToggleSelect, onOpen,
+  room, propertyLabel, selected, onToggleSelect, onOpen, showId,
   onEdit, onDuplicate, onArchive, onRestore, onDeleteRequest, canDeletePermanently,
 }) {
   const r = room;
@@ -61,7 +62,7 @@ const RoomTableRow = memo(function RoomTableRow({
       <td>
         <Checkbox checked={selected} onChange={() => onToggleSelect(r.id)} label={`Select ${r.name}`} />
       </td>
-      <td className="tabular table__cell-muted">{r.id}</td>
+      {showId && <td className="tabular table__cell-muted">{r.id}</td>}
       <td className="row-link" onClick={() => onOpen(r.id)}>
         <div className="table__cell-primary">{r.name}</div>
         <div className="table__cell-muted">{r.description}</div>
@@ -108,9 +109,15 @@ export function RoomsPage() {
   const [search, setSearch] = useState("");
   const [occupancyFilter, setOccupancyFilter] = usePersistedState("rooms.occupancyFilter", []);
   const [roomTypeFilter, setRoomTypeFilter] = usePersistedState("rooms.roomTypeFilter", []);
-  const [viewMode, setViewMode] = useState("active");
+  // Default Filters settings seed this the first time it's ever read (or
+  // after Reset), same as every other persisted filter — not a live
+  // override of a view you've already chosen.
+  const [defaultFilters] = usePersistedState("settings.defaultFilters", DEFAULT_FILTERS_DEFAULTS);
+  const [viewMode, setViewMode] = usePersistedState("rooms.viewMode", defaultFilters.roomsView);
   const [sortKey, setSortKey] = usePersistedState("rooms.sortKey", "name");
   const [sortDir, setSortDir] = usePersistedState("rooms.sortDir", "asc");
+  const { table: tablePrefs } = useAppSettings();
+  const PAGE_SIZE = tablePrefs.pageSize;
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -167,7 +174,7 @@ export function RoomsPage() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    [roomsInView, search, occupancyFilter, roomTypeFilter, sortKey, sortDir, page]
+    [roomsInView, search, occupancyFilter, roomTypeFilter, sortKey, sortDir, page, PAGE_SIZE]
   );
 
   const visibleIds = pageData.map((r) => r.id);
@@ -180,7 +187,7 @@ export function RoomsPage() {
       sortable: false,
       width: 40,
     },
-    ...BASE_COLUMNS,
+    ...(tablePrefs.showIdColumn ? BASE_COLUMNS : BASE_COLUMNS.filter((c) => c.key !== "id")),
   ];
   // Floor for the flexible "Room Name" column, plus every fixed column's own
   // width — passed to <Table minWidth> so the grid scrolls horizontally on
@@ -266,7 +273,11 @@ export function RoomsPage() {
     { label: "Max Occupancy", value: (r) => r.maxOccupancy },
     { label: "Status", value: (r) => r.status },
   ];
-  const exportRowsData = selection.count ? roomsInView.filter((r) => selection.selected.includes(r.id)) : pageData;
+  // Settings → Configuration Settings → Import & Export → Include Archived.
+  const [importExportSettings] = usePersistedState("settings.competitors.importExport", IMPORT_EXPORT_SETTINGS_DEFAULTS);
+  const exportRowsData = selection.count
+    ? roomsInView.filter((r) => selection.selected.includes(r.id))
+    : (importExportSettings.includeArchived ? roomsInScope : pageData);
 
   const roomCountForProperty = (propertyId) => data.rooms.filter((r) => r.propertyId === propertyId && r.status !== "Archived").length;
 
@@ -368,6 +379,7 @@ export function RoomsPage() {
                 room={r}
                 propertyLabel={propertyName(r.propertyId)}
                 selected={selection.selected.includes(r.id)}
+                showId={tablePrefs.showIdColumn}
                 onToggleSelect={selection.toggle}
                 onOpen={(id) => navigate(`/portal/rooms/${id}`)}
                 onEdit={openEdit}

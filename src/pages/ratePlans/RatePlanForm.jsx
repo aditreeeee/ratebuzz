@@ -16,6 +16,8 @@ import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 import { useData } from "../../context/DataContext.jsx";
 import { PricingRangesTable } from "./PricingRangesTable.jsx";
 import { conflictingRowIds } from "../../lib/pricingValidation.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { RATE_PLAN_DEFAULTS_SETTINGS } from "../../lib/competitorSettingsDefaults.js";
 
 const REFUND_UNTIL_UNITS = ["Hours", "Days"];
 
@@ -106,6 +108,9 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
   const [active, setActive] = useState("overview");
   const [expandedIds, setExpandedIds] = useState(new Set());
   const baselineRef = useRef(EMPTY);
+  // Settings → Defaults → Rate Plans: prefills a brand-new rate plan's
+  // Cancellation Policy/Status.
+  const [ratePlanDefaults] = usePersistedState("settings.defaults.ratePlans", RATE_PLAN_DEFAULTS_SETTINGS);
 
   useEffect(() => {
     let baseline;
@@ -118,9 +123,15 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
       }));
       baseline = { ...EMPTY, ...initial, ratePlanRooms: existingRatePlanRooms };
     } else if (scopeRoomId) {
-      baseline = { ...EMPTY, ratePlanRooms: [blankRatePlanRoomCard(scopeRoomId, true)] };
+      baseline = {
+        ...EMPTY, cancellationPolicy: ratePlanDefaults.cancellationPolicy, status: ratePlanDefaults.status,
+        ratePlanRooms: [blankRatePlanRoomCard(scopeRoomId, true)],
+      };
     } else {
-      baseline = { ...EMPTY, ratePlanRooms: [] };
+      baseline = {
+        ...EMPTY, cancellationPolicy: ratePlanDefaults.cancellationPolicy, status: ratePlanDefaults.status,
+        ratePlanRooms: [],
+      };
     }
     setForm(baseline);
     setErrors({});

@@ -5,11 +5,13 @@ import { Button } from "../../components/ui/Button.jsx";
 import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { MAPPING_TYPES, MAPPING_STATUSES } from "../../mocks/competitors.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { ROOM_MAPPING_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
-function buildEmpty() {
+function buildEmpty(defaultMappingType) {
   return {
     internalRoomIds: [], competitorRoomLabel: "", competitorRoomCode: "",
-    mappingType: MAPPING_TYPES[0], status: "Needs Review", confidence: 0, notes: "",
+    mappingType: defaultMappingType || MAPPING_TYPES[0], status: "Needs Review", confidence: 0, notes: "",
   };
 }
 
@@ -33,12 +35,15 @@ function validate(form) {
 // site-specific code/slug (once the Python scraper starts reading one) lets
 // matching survive that without an operator having to re-map anything.
 export function RoomMappingForm({ open, onClose, onSubmit, initial, rooms = [], competitorName }) {
-  const [form, setForm] = useState(initial || buildEmpty());
+  // Settings → Configuration Settings → Room Mapping: prefills a brand-new
+  // mapping's Mapping Type.
+  const [roomMappingDefaults] = usePersistedState("settings.competitors.roomMapping", ROOM_MAPPING_SETTINGS_DEFAULTS);
+  const [form, setForm] = useState(initial || buildEmpty(roomMappingDefaults.defaultMappingType));
   const [errors, setErrors] = useState({});
   const baselineRef = useRef(form);
 
   useEffect(() => {
-    const baseline = initial ? { ...buildEmpty(), ...initial } : buildEmpty();
+    const baseline = initial ? { ...buildEmpty(), ...initial } : buildEmpty(roomMappingDefaults.defaultMappingType);
     setForm(baseline);
     setErrors({});
     baselineRef.current = baseline;

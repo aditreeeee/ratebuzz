@@ -7,11 +7,13 @@ import { MEAL_PLANS, CANCELLATION_POLICIES, mealPlanLabel } from "../../mocks/ra
 import { CURRENCIES } from "../../mocks/properties.js";
 import { PRIORITY_LEVELS, MAPPING_STATUSES } from "../../mocks/competitors.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { RATE_PLAN_MAPPING_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
-function buildEmpty() {
+function buildEmpty(defaults) {
   return {
     internalRatePlanId: "", competitorRatePlanName: "", competitorRatePlanCode: "", roomMappingId: "",
-    mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0], currency: CURRENCIES[0],
+    mealPlan: defaults?.defaultMealPlan || MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0], currency: defaults?.defaultCurrency || CURRENCIES[0],
     priority: "Medium", status: "Needs Review", notes: "",
   };
 }
@@ -41,12 +43,15 @@ function validate(form) {
 // `competitorRoomCode` — an optional stable site identifier, independent of
 // the human-readable name.
 export function RatePlanMappingForm({ open, onClose, onSubmit, initial, ratePlans = [], roomMappings = [], competitorName }) {
-  const [form, setForm] = useState(initial || buildEmpty());
+  // Settings → Configuration Settings → Rate Plan Mapping: prefills a
+  // brand-new mapping's Meal Plan/Currency.
+  const [ratePlanMappingDefaults] = usePersistedState("settings.competitors.ratePlanMapping", RATE_PLAN_MAPPING_SETTINGS_DEFAULTS);
+  const [form, setForm] = useState(initial || buildEmpty(ratePlanMappingDefaults));
   const [errors, setErrors] = useState({});
   const baselineRef = useRef(form);
 
   useEffect(() => {
-    const baseline = initial ? { ...buildEmpty(), ...initial } : buildEmpty();
+    const baseline = initial ? { ...buildEmpty(), ...initial } : buildEmpty(ratePlanMappingDefaults);
     setForm(baseline);
     setErrors({});
     baselineRef.current = baseline;

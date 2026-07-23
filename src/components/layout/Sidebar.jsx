@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { Building2, BedDouble, Tag, Target, Settings, LogOut, Radar, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useAppSettings } from "../../context/AppSettingsContext.jsx";
 
 const NAV_ITEMS = [
   { to: "/portal/properties", label: "Properties", icon: Building2 },
@@ -13,6 +14,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({ mobileOpen = false, onClose }) {
   const { logout } = useAuth();
+  const { general } = useAppSettings();
   return (
     <aside className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}>
       <div className="sidebar__brand">
@@ -20,7 +22,7 @@ export function Sidebar({ mobileOpen = false, onClose }) {
           <Radar size={20} strokeWidth={2} />
         </div>
         <div className="sidebar__brand-text">
-          <span className="sidebar__brand-title">Rate Intelligence</span>
+          <span className="sidebar__brand-title">{general.orgName || "Rate Intelligence"}</span>
           <span className="sidebar__brand-sub">Platform</span>
         </div>
         <button className="sidebar__close" onClick={onClose} aria-label="Close navigation menu">

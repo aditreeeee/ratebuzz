@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Tag, Pencil, Copy, Trash2, RotateCcw, Archive, Upload, Building2 } from "lucide-react";
+import { Plus, Tag, Pencil, Trash2, RotateCcw, Archive, Upload, Building2 } from "lucide-react";
 import { Topbar } from "../../components/layout/Topbar.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Table } from "../../components/ui/Table.jsx";
@@ -23,12 +23,13 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { useAppSettings } from "../../context/AppSettingsContext.jsx";
 import { usePaginatedSortedFiltered, formatDate } from "../../lib/format.js";
 import { RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 import { TagChips } from "../../components/ui/TagChips.jsx";
-
-const PAGE_SIZE = 10;
+import { DEFAULT_FILTERS_DEFAULTS } from "../../lib/appSettingsStore.js";
+import { IMPORT_EXPORT_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
 const BASE_COLUMNS = [
   { key: "id", label: "Rate Plan ID", sortable: true, width: 120 },
@@ -51,8 +52,8 @@ const VIEW_TABS = [
 // names/property names/pricing summary are pre-resolved by the caller so
 // this component's props stay comparable by React.memo's shallow check.
 const RatePlanTableRow = memo(function RatePlanTableRow({
-  ratePlan, roomNames, propertyNames, pricingSummary, selected, onToggleSelect, onOpen,
-  onEdit, onDuplicate, onArchive, onRestore, onDeleteRequest, canDeletePermanently,
+  ratePlan, roomNames, propertyNames, pricingSummary, selected, onToggleSelect, onOpen, showId,
+  onEdit, onArchive, onRestore, onDeleteRequest, canDeletePermanently,
 }) {
   const rp = ratePlan;
   return (
@@ -60,7 +61,7 @@ const RatePlanTableRow = memo(function RatePlanTableRow({
       <td>
         <Checkbox checked={selected} onChange={() => onToggleSelect(rp.id)} label={`Select ${rp.name}`} />
       </td>
-      <td className="tabular table__cell-muted">{rp.id}</td>
+      {showId && <td className="tabular table__cell-muted">{rp.id}</td>}
       <td className="row-link" onClick={() => onOpen(rp.id)}>
         <div className="table__cell-primary">{rp.name}</div>
         <div className="table__cell-muted">{rp.cancellationPolicy}</div>
@@ -75,7 +76,6 @@ const RatePlanTableRow = memo(function RatePlanTableRow({
           {rp.status !== "Archived" ? (
             <>
               <button className="table__action-btn" title="Edit" onClick={() => onEdit(rp)}><Pencil size={15} strokeWidth={2} /></button>
-              <button className="table__action-btn" title="Duplicate" onClick={() => onDuplicate(rp)}><Copy size={15} strokeWidth={2} /></button>
               <button className="table__action-btn" title="Archive" onClick={() => onArchive(rp)}><Archive size={15} strokeWidth={2} /></button>
             </>
           ) : (
@@ -106,9 +106,12 @@ export function RatePlansPage() {
   const [selectedRoomIds, setSelectedRoomIds] = useState([]);
   const [search, setSearch] = useState("");
   const [mealPlanFilter, setMealPlanFilter] = usePersistedState("ratePlans.mealPlanFilter", []);
-  const [viewMode, setViewMode] = useState("active");
+  const [defaultFilters] = usePersistedState("settings.defaultFilters", DEFAULT_FILTERS_DEFAULTS);
+  const [viewMode, setViewMode] = usePersistedState("ratePlans.viewMode", defaultFilters.ratePlansView);
   const [sortKey, setSortKey] = usePersistedState("ratePlans.sortKey", "name");
   const [sortDir, setSortDir] = usePersistedState("ratePlans.sortDir", "asc");
+  const { table: tablePrefs } = useAppSettings();
+  const PAGE_SIZE = tablePrefs.pageSize;
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -221,7 +224,7 @@ export function RatePlansPage() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    [ratePlansInView, search, mealPlanFilter, sortKey, sortDir, page]
+    [ratePlansInView, search, mealPlanFilter, sortKey, sortDir, page, PAGE_SIZE]
   );
 
   const visibleIds = pageData.map((rp) => rp.id);
@@ -234,7 +237,7 @@ export function RatePlansPage() {
       sortable: false,
       width: 40,
     },
-    ...BASE_COLUMNS,
+    ...(tablePrefs.showIdColumn ? BASE_COLUMNS : BASE_COLUMNS.filter((c) => c.key !== "id")),
   ];
   // Floor for the flexible "Name" column, plus every fixed column's own
   // width — passed to <Table minWidth> so the grid scrolls horizontally on
@@ -258,11 +261,6 @@ export function RatePlansPage() {
     if (!opts?.keepOpen) setFormOpen(false);
   };
 
-  const handleDuplicate = (rp) => {
-    const copy = data.duplicateRatePlan(rp);
-    toast.info(`Duplicated as ${copy.id}.`);
-  };
-
   const handleArchive = (rp) => { data.archiveRatePlan(rp); toast.info(`${rp.name} archived.`); };
   const handleRestore = (rp) => { data.restoreRatePlan(rp); toast.success(`${rp.name} restored.`); };
 
@@ -280,11 +278,6 @@ export function RatePlansPage() {
   const handleBulkRestore = () => {
     data.bulkRestoreRatePlans(selection.selected);
     toast.success(`${selection.count} rate plan(s) restored.`);
-    selection.clear();
-  };
-  const handleBulkDuplicate = () => {
-    const copies = data.bulkDuplicateRatePlans(selection.selected);
-    toast.info(`${copies.length} rate plan(s) duplicated.`);
     selection.clear();
   };
   const handleBulkDelete = () => {
@@ -319,7 +312,11 @@ export function RatePlansPage() {
     { label: "Pricing Range", value: (rp) => pricingRangeSummary(rp.id) },
     { label: "Status", value: (rp) => rp.status },
   ];
-  const exportRowsData = selection.count ? ratePlansInView.filter((rp) => selection.selected.includes(rp.id)) : pageData;
+  // Settings → Configuration Settings → Import & Export → Include Archived.
+  const [importExportSettings] = usePersistedState("settings.competitors.importExport", IMPORT_EXPORT_SETTINGS_DEFAULTS);
+  const exportRowsData = selection.count
+    ? ratePlansInView.filter((rp) => selection.selected.includes(rp.id))
+    : (importExportSettings.includeArchived ? ratePlansInScope : pageData);
 
   return (
     <div>
@@ -371,7 +368,6 @@ export function RatePlansPage() {
             onClear={selection.clear}
             onArchive={handleBulkArchive}
             onRestore={handleBulkRestore}
-            onDuplicate={handleBulkDuplicate}
             onDelete={() => setConfirmBulkDelete(true)}
             statusOptions={changeStatusOptions}
             onChangeStatus={handleBulkStatus}
@@ -428,10 +424,10 @@ export function RatePlansPage() {
                   propertyNames={propertyNames}
                   pricingSummary={pricingRangeSummary(rp.id)}
                   selected={selection.selected.includes(rp.id)}
+                  showId={tablePrefs.showIdColumn}
                   onToggleSelect={selection.toggle}
                   onOpen={(id) => navigate(`/portal/rate-plans/${id}`)}
                   onEdit={openEdit}
-                  onDuplicate={handleDuplicate}
                   onArchive={handleArchive}
                   onRestore={handleRestore}
                   onDeleteRequest={setConfirmDelete}

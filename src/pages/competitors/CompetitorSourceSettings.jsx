@@ -1,30 +1,35 @@
 import React, { useState } from "react";
-import { Save, Settings2 } from "lucide-react";
+import { Save, Settings2, RotateCcw } from "lucide-react";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field } from "../../components/ui/Input.jsx";
 import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { Button } from "../../components/ui/Button.jsx";
+import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { MasterDataManager } from "../../components/ui/MasterDataManager.jsx";
 import { useData } from "../../context/DataContext.jsx";
-import { useToast } from "../../context/ToastContext.jsx";
 import { PRIORITY_LEVELS } from "../../mocks/competitors.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { useSettingsForm } from "../../hooks/useSettingsForm.js";
+import { SOURCE_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 
 // Source Types themselves are edited through the shared MasterDataManager
 // (kind="sourceTypes") — the same generic add/rename/delete UI Room Types
-// and Amenities use — so "users should be able to create additional source
-// types later" needs no bespoke UI here.
-export function CompetitorSourceSettings() {
+// and Amenities use. Default Priority prefills SourceConfigForm's new-source
+// baseline; Require HTTPS is enforced there as real, stricter URL
+// validation; Flag Duplicate URLs drives real duplicate-URL flagging on the
+// Sources tab.
+export function CompetitorSourceSettings({ onDirtyChange }) {
   const data = useData();
-  const toast = useToast();
   const sourceTypes = data.masters.sourceTypes || [];
-  const [defaultPriority, setDefaultPriority] = useState("Medium");
   const [manageOpen, setManageOpen] = useState(false);
-  const [requireHttps, setRequireHttps] = useState(true);
-  const [flagDuplicates, setFlagDuplicates] = useState(true);
+  const [saved, setSaved] = usePersistedState("settings.competitors.sources", SOURCE_SETTINGS_DEFAULTS);
+  const { draft, setField, isDirty, save, reset, confirmOpen, requestAction, confirmDiscard, cancelDiscard } = useSettingsForm(
+    saved, setSaved, SOURCE_SETTINGS_DEFAULTS, { onDirtyChange }
+  );
 
   const handleSave = (e) => {
     e.preventDefault();
-    toast.success("Source and URL validation settings saved.");
+    save();
   };
 
   return (
@@ -38,7 +43,7 @@ export function CompetitorSourceSettings() {
           </Field>
         </div>
         <div className="form-grid__full">
-          <FeatureChipGrid label="Default Priority" options={PRIORITY_LEVELS} value={defaultPriority} onChange={setDefaultPriority} multiple={false} />
+          <FeatureChipGrid label="Default Priority" options={PRIORITY_LEVELS} value={draft.defaultPriority} onChange={setField("defaultPriority")} multiple={false} />
         </div>
 
         <div className="form-grid__full" style={{ marginTop: "var(--space-2)" }}>
@@ -48,29 +53,43 @@ export function CompetitorSourceSettings() {
           <FeatureChipGrid
             label="Require HTTPS"
             options={["No", "Yes"]}
-            value={requireHttps ? "Yes" : "No"}
-            onChange={(v) => setRequireHttps(v === "Yes")}
+            value={draft.requireHttps ? "Yes" : "No"}
+            onChange={(v) => setField("requireHttps")(v === "Yes")}
             multiple={false}
-            hint="Flag any Website, OTA, Source, or Custom URL that doesn't start with https:// as invalid."
+            hint="Any source URL that doesn't start with https:// is rejected as invalid."
           />
         </div>
         <div className="form-grid__full">
           <FeatureChipGrid
             label="Flag Duplicate URLs"
             options={["No", "Yes"]}
-            value={flagDuplicates ? "Yes" : "No"}
-            onChange={(v) => setFlagDuplicates(v === "Yes")}
+            value={draft.flagDuplicates ? "Yes" : "No"}
+            onChange={(v) => setField("flagDuplicates")(v === "Yes")}
             multiple={false}
-            hint="Used by the URL Manager tab's duplicate detection on every competitor."
+            hint="Sources sharing the same URL within a competitor are flagged on the Sources tab."
           />
         </div>
 
-        <div className="form-grid__full" style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button variant="primary" size="md" icon={Save} type="submit">Save Changes</Button>
+        <div className="form-grid__full" style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          {isDirty && (
+            <button className="btn btn--ghost btn--md" type="button" onClick={reset}>
+              <RotateCcw size={15} strokeWidth={2} /> Reset Changes
+            </button>
+          )}
+          <Button variant="primary" size="md" icon={Save} type="submit" disabled={!isDirty}>Save Changes</Button>
         </div>
       </form>
     </Card>
     <MasterDataManager open={manageOpen} onClose={() => setManageOpen(false)} kind="sourceTypes" label="Source Types" />
+    <ConfirmModal
+      open={confirmOpen}
+      onClose={cancelDiscard}
+      onConfirm={confirmDiscard}
+      title="Unsaved Changes"
+      message="You have unsaved changes. Discard them and continue?"
+      confirmLabel="Discard Changes"
+      danger
+    />
     </>
   );
 }

@@ -1,33 +1,30 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Copy, Trash2, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
-import { Table } from "../../components/ui/Table.jsx";
+import { Card } from "../../components/ui/Card.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Button } from "../../components/ui/Button.jsx";
-import { Input, Select } from "../../components/ui/Input.jsx";
+import { Field, Input, Select } from "../../components/ui/Input.jsx";
+import { Checkbox } from "../../components/ui/Checkbox.jsx";
+import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { CANCELLATION_POLICIES } from "../../mocks/ratePlans.js";
 import { CURRENCIES } from "../../mocks/properties.js";
 import { conflictingRowIds } from "../../lib/pricingValidation.js";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { RATE_PLAN_DEFAULTS_SETTINGS } from "../../lib/competitorSettingsDefaults.js";
 
 const OCCUPANCY_OPTIONS = ["", "Single", "Double", "Triple", "Quad"];
 const STATUS_OPTIONS = ["Draft", "Active", "Archived"];
 
-const COLUMNS = [
-  { key: "alwaysApplicable", label: "Always Applicable", width: 130 },
-  { key: "startDate", label: "Start Date", width: 140 },
-  { key: "endDate", label: "End Date", width: 140 },
-  { key: "occupancy", label: "Occupancy", width: 120 },
-  { key: "price", label: "Price", width: 110 },
-  { key: "currency", label: "Currency", width: 90 },
-  { key: "taxInclusive", label: "Tax Inclusive", width: 100 },
-  { key: "taxPercent", label: "Tax %", width: 90 },
-  { key: "cancellationPolicy", label: "Cancellation Policy", width: 190 },
-  { key: "status", label: "Status", width: 110 },
-  { key: "actions", label: "", width: 110 },
-];
-
-const TABLE_MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + (c.width || 160), 0);
+// Settings → Defaults → Rate Plans → Price Rounding's real effect.
+function applyRounding(value, rule) {
+  if (value === "" || value === null || Number.isNaN(Number(value))) return value;
+  const n = Number(value);
+  if (rule === "Nearest Whole Number") return Math.round(n);
+  if (rule === "Nearest 0.50") return Math.round(n * 2) / 2;
+  return n;
+}
 
 export function blankPricingRangeRow() {
   return {
@@ -39,20 +36,27 @@ export function blankPricingRangeRow() {
   };
 }
 
-// Inline-editable Pricing Ranges grid used both inside RatePlanForm (unsaved,
-// in-progress rows, scoped to one in-progress Room card) and
-// RatePlanProfilePage's Rooms tab (rows are persisted immediately through
-// DataContext there, scoped to one persisted Rate Plan Room). `rows`/
-// `onChange` hold the working array; `onPersistedDelete` — when provided —
-// is called (with a ConfirmModal) instead of a plain splice for rows that
-// already exist in DataContext (i.e. not `isNew`).
+// Redesigned to match the rest of the app's form language: one card per row
+// (same shell as RatePlanForm's Rooms tab / RoomMappingForm-style repeatable
+// blocks) with Field-wrapped inputs in a form-grid, instead of a dense
+// spreadsheet-style table — consistent spacing, labels, and hierarchy with
+// every other add/edit form in the app. Used both inside RatePlanForm
+// (unsaved, in-progress rows, scoped to one in-progress Room card) and
+// RatePlanProfilePage's Pricing Ranges tab (rows are persisted immediately
+// through DataContext there, scoped to one persisted Rate Plan Room).
+// `rows`/`onChange` hold the working array; `onPersistedDelete` — when
+// provided — is called (with a ConfirmModal) instead of a plain splice for
+// rows that already exist in DataContext (i.e. not `isNew`).
 export function PricingRangesTable({ rows, onChange, onPersistedDelete }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [ratePlanDefaults] = usePersistedState("settings.defaults.ratePlans", RATE_PLAN_DEFAULTS_SETTINGS);
   const conflicts = useMemo(() => conflictingRowIds(rows), [rows]);
 
   const updateRow = (id, patch) => {
     onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
+
+  const roundPrice = (id, value) => updateRow(id, { price: applyRounding(value, ratePlanDefaults.priceRounding) });
 
   // Always Applicable is the explicit, unambiguous form of "no validity
   // period" — checking it clears both dates so a row is never saved in the
@@ -103,66 +107,108 @@ export function PricingRangesTable({ rows, onChange, onPersistedDelete }) {
           Some Pricing Range rows have overlapping date ranges for the same occupancy. Resolve the highlighted rows before saving.
         </div>
       )}
-      <p className="master-manager__hint" style={{ marginBottom: "var(--space-3)" }}>
+      <p className="master-manager__hint" style={{ marginBottom: "var(--space-4)" }}>
         Leave both dates blank or enable "Always Applicable" if this pricing range has no validity period and should always remain active.
       </p>
-      <Table
-        columns={COLUMNS}
-        data={rows}
-        rowKey={(row) => row.id}
-        minWidth={TABLE_MIN_WIDTH}
-        emptyState={<div className="table__cell-muted" style={{ padding: 16 }}>No Pricing Range rows yet. Click "+ Add Row" to create one.</div>}
-        renderRow={(row, key) => {
-          const conflicted = conflicts.has(row.id);
-          return (
-            <tr key={key} className={conflicted ? "pricing-ranges-table__row--conflict" : ""} title={conflicted ? "Overlaps another row with the same (or Any) occupancy." : undefined}>
-              <td style={{ textAlign: "center" }}>
-                <input
-                  type="checkbox"
+
+      {rows.length === 0 && (
+        <div className="table__cell-muted" style={{ padding: "var(--space-4) 0" }}>No Pricing Range rows yet. Click "+ Add Pricing Range" to create one.</div>
+      )}
+
+      {rows.map((row, index) => {
+        const conflicted = conflicts.has(row.id);
+        return (
+          <Card key={row.id} className={`rate-plan-room-card ${conflicted ? "pricing-range-card--conflict" : ""}`} padded={false} glow={false}>
+            <div className="rate-plan-room-card__header">
+              <div className="rate-plan-room-card__room-field">
+                <strong>Pricing Range {index + 1}</strong>
+                {conflicted && (
+                  <div className="rate-plan-room-card__error">
+                    <AlertTriangle size={12} strokeWidth={2} style={{ verticalAlign: -2, marginRight: 4 }} />
+                    Overlaps another row with the same (or Any) occupancy.
+                  </div>
+                )}
+              </div>
+              <div className="rate-plan-room-card__actions">
+                <button type="button" className="table__action-btn" title="Move up" onClick={() => moveRow(index, -1)} disabled={index === 0}><ChevronUp size={15} strokeWidth={2} /></button>
+                <button type="button" className="table__action-btn" title="Move down" onClick={() => moveRow(index, 1)} disabled={index === rows.length - 1}><ChevronDown size={15} strokeWidth={2} /></button>
+                <button type="button" className="table__action-btn" title="Duplicate row" onClick={() => duplicateRow(row)}><Copy size={15} strokeWidth={2} /></button>
+                <button type="button" className="table__action-btn table__action-btn--danger" title="Delete row" onClick={() => removeRow(row)}><Trash2 size={15} strokeWidth={2} /></button>
+              </div>
+            </div>
+
+            <div className="rate-plan-room-card__body">
+              <div style={{ marginBottom: "var(--space-4)" }}>
+                <Checkbox
                   checked={!!row.alwaysApplicable}
                   onChange={(e) => toggleAlwaysApplicable(row.id, e.target.checked)}
-                  aria-label="Always applicable"
+                  label="Always Applicable"
                 />
-              </td>
-              <td><Input type="date" value={row.startDate || ""} onChange={(e) => updateRow(row.id, { startDate: e.target.value })} disabled={!!row.alwaysApplicable} /></td>
-              <td><Input type="date" value={row.endDate || ""} onChange={(e) => updateRow(row.id, { endDate: e.target.value })} disabled={!!row.alwaysApplicable} /></td>
-              <td>
-                <Select
-                  options={OCCUPANCY_OPTIONS.filter((o) => o !== "")}
-                  placeholder="Any"
-                  value={row.occupancy || ""}
-                  onChange={(e) => updateRow(row.id, { occupancy: e.target.value })}
+                <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, color: "var(--color-text)" }}>Always Applicable</span>
+              </div>
+
+              <div className="form-grid">
+                <Field label="Start Date" id={`pr-start-${row.id}`}>
+                  <Input type="date" id={`pr-start-${row.id}`} value={row.startDate || ""} onChange={(e) => updateRow(row.id, { startDate: e.target.value })} disabled={!!row.alwaysApplicable} />
+                </Field>
+                <Field label="End Date" id={`pr-end-${row.id}`}>
+                  <Input type="date" id={`pr-end-${row.id}`} value={row.endDate || ""} onChange={(e) => updateRow(row.id, { endDate: e.target.value })} disabled={!!row.alwaysApplicable} />
+                </Field>
+                <Field label="Occupancy" id={`pr-occ-${row.id}`} hint="Leave blank to apply to any occupancy.">
+                  <Select
+                    id={`pr-occ-${row.id}`}
+                    options={OCCUPANCY_OPTIONS.filter((o) => o !== "")}
+                    placeholder="Any"
+                    value={row.occupancy || ""}
+                    onChange={(e) => updateRow(row.id, { occupancy: e.target.value })}
+                  />
+                </Field>
+                <Field label="Price" id={`pr-price-${row.id}`}>
+                  <Input
+                    id={`pr-price-${row.id}`}
+                    type="number" min="0" step="0.01" tabular
+                    value={row.price}
+                    onChange={(e) => updateRow(row.id, { price: e.target.value === "" ? "" : Number(e.target.value) })}
+                    onBlur={(e) => roundPrice(row.id, e.target.value)}
+                  />
+                </Field>
+                <Field label="Currency" id={`pr-currency-${row.id}`}>
+                  <Select id={`pr-currency-${row.id}`} options={CURRENCIES} value={row.currency} onChange={(e) => updateRow(row.id, { currency: e.target.value })} />
+                </Field>
+                <Field label="Tax %" id={`pr-tax-${row.id}`}>
+                  <Input
+                    id={`pr-tax-${row.id}`}
+                    type="number" min="0" step="0.1" tabular
+                    disabled={!!row.taxInclusive}
+                    value={row.taxPercent}
+                    onChange={(e) => updateRow(row.id, { taxPercent: e.target.value === "" ? "" : Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label="Cancellation Policy" id={`pr-cancel-${row.id}`}>
+                  <Select id={`pr-cancel-${row.id}`} options={CANCELLATION_POLICIES} value={row.cancellationPolicy} onChange={(e) => updateRow(row.id, { cancellationPolicy: e.target.value })} />
+                </Field>
+                <Field label="Status" id={`pr-status-${row.id}`}>
+                  <Select id={`pr-status-${row.id}`} options={STATUS_OPTIONS} value={row.status} onChange={(e) => updateRow(row.id, { status: e.target.value })} />
+                </Field>
+              </div>
+
+              <div style={{ marginTop: "var(--space-2)" }}>
+                <FeatureChipGrid
+                  label="Tax Inclusive"
+                  options={["No", "Yes"]}
+                  value={row.taxInclusive ? "Yes" : "No"}
+                  onChange={(v) => updateRow(row.id, { taxInclusive: v === "Yes" })}
+                  multiple={false}
+                  hint="Whether the price above already includes tax."
                 />
-              </td>
-              <td><Input type="number" min="0" step="0.01" tabular value={row.price} onChange={(e) => updateRow(row.id, { price: e.target.value === "" ? "" : Number(e.target.value) })} /></td>
-              <td><Select options={CURRENCIES} value={row.currency} onChange={(e) => updateRow(row.id, { currency: e.target.value })} /></td>
-              <td style={{ textAlign: "center" }}>
-                <input type="checkbox" checked={!!row.taxInclusive} onChange={(e) => updateRow(row.id, { taxInclusive: e.target.checked })} aria-label="Tax inclusive" />
-              </td>
-              <td>
-                <Input
-                  type="number" min="0" step="0.1" tabular
-                  disabled={!!row.taxInclusive}
-                  value={row.taxPercent}
-                  onChange={(e) => updateRow(row.id, { taxPercent: e.target.value === "" ? "" : Number(e.target.value) })}
-                />
-              </td>
-              <td><Select options={CANCELLATION_POLICIES} value={row.cancellationPolicy} onChange={(e) => updateRow(row.id, { cancellationPolicy: e.target.value })} /></td>
-              <td><Select options={STATUS_OPTIONS} value={row.status} onChange={(e) => updateRow(row.id, { status: e.target.value })} /></td>
-              <td>
-                <div className="table__actions">
-                  <button type="button" className="table__action-btn" title="Move up" onClick={() => moveRow(rows.indexOf(row), -1)}><ChevronUp size={14} strokeWidth={2} /></button>
-                  <button type="button" className="table__action-btn" title="Move down" onClick={() => moveRow(rows.indexOf(row), 1)}><ChevronDown size={14} strokeWidth={2} /></button>
-                  <button type="button" className="table__action-btn" title="Duplicate row" onClick={() => duplicateRow(row)}><Copy size={14} strokeWidth={2} /></button>
-                  <button type="button" className="table__action-btn table__action-btn--danger" title="Delete row" onClick={() => removeRow(row)}><Trash2 size={14} strokeWidth={2} /></button>
-                </div>
-              </td>
-            </tr>
-          );
-        }}
-      />
-      <button type="button" className="btn btn--ghost btn--sm" onClick={addRow} style={{ marginTop: "var(--space-3)" }}>
-        <Plus size={14} strokeWidth={2} /> Add Row
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+
+      <button type="button" className="btn btn--ghost btn--sm" onClick={addRow} style={{ marginTop: "var(--space-2)" }}>
+        <Plus size={14} strokeWidth={2} /> Add Pricing Range
       </button>
 
       <ConfirmModal
@@ -181,11 +227,11 @@ export function PricingRangesTable({ rows, onChange, onPersistedDelete }) {
 // "Genuinely editable" wrapper wired directly to DataContext for a single
 // Rate Plan Room's Pricing Ranges — the same convention RatePlanMappingTab/
 // RoomMappingTab use for a profile-page tab with its own add/edit/delete UI,
-// adapted for an inline grid instead of a modal-per-row. Row deletes on
-// already-persisted rows go through PricingRangesTable's own ConfirmModal and
-// take effect immediately; new rows / field edits / duplicates / reordering
-// are staged locally and written to DataContext in one batch via "Save
-// Pricing Ranges" (so a conflict can be resolved before anything is
+// adapted for a repeatable card list instead of a modal-per-row. Row deletes
+// on already-persisted rows go through PricingRangesTable's own ConfirmModal
+// and take effect immediately; new rows / field edits / duplicates /
+// reordering are staged locally and written to DataContext in one batch via
+// "Save Pricing Ranges" (so a conflict can be resolved before anything is
 // persisted).
 export function RatePlanRoomPricingRangesEditor({ ratePlanRoomId }) {
   const data = useData();

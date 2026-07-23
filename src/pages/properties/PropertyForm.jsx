@@ -16,6 +16,9 @@ import {
 } from "../../mocks/properties.js";
 import { useUnsavedChanges } from "../../hooks/useUnsavedChanges.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+
+const PROPERTY_DEFAULTS_SETTINGS = { status: "Draft", requireApproval: "No", tags: [] };
 
 const EMPTY = {
   name: "", country: "", state: "", city: "",
@@ -63,13 +66,23 @@ const SECTIONS = [
 
 export function PropertyForm({ open, onClose, onSubmit, initial }) {
   const permissions = usePermissions();
-  const [form, setForm] = useState(initial || EMPTY);
+  // Settings → Defaults → Properties: prefills a brand-new property's
+  // Status/Tags, and "Require Approval" forces Status to "Draft" regardless
+  // of the configured default (there's no separate approval workflow to
+  // gate activation, so this is the real effect of that toggle).
+  const [propertyDefaults] = usePersistedState("settings.defaults.properties", PROPERTY_DEFAULTS_SETTINGS);
+  const newPropertyDefaults = {
+    ...EMPTY,
+    status: propertyDefaults.requireApproval === "Yes" ? "Draft" : propertyDefaults.status,
+    tags: propertyDefaults.tags,
+  };
+  const [form, setForm] = useState(initial || newPropertyDefaults);
   const [errors, setErrors] = useState({});
   const [active, setActive] = useState("overview");
   const baselineRef = useRef(EMPTY);
 
   useEffect(() => {
-    const baseline = initial ? { ...EMPTY, ...initial } : EMPTY;
+    const baseline = initial ? { ...EMPTY, ...initial } : newPropertyDefaults;
     setForm(baseline);
     setErrors({});
     setActive("overview");

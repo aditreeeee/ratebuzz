@@ -16,6 +16,8 @@
 // price comparison — it's a readout of mapping completeness ahead of
 // Phase 3's rate collection.
 
+import { getAppSettings } from "./appSettingsStore.js";
+
 function pct(numerator, denominator) {
   if (denominator <= 0) return 0;
   return Math.round((numerator / denominator) * 100);
@@ -60,6 +62,11 @@ export function computeCompetitorReadiness({ competitor, roomMappings, ratePlanM
 // property, read from Phase 1) is never part of this score: it's always
 // present by definition, since a competitor can't exist without being
 // scoped to one of our own managed properties.
+// `minCompetitors` (Settings → Configuration Settings → Comparison Rules)
+// is read live here — a property with fewer active competitors than this
+// threshold never reaches 100% readiness, regardless of how well-mapped its
+// existing competitors are. This is the real effect of that setting: raise
+// or lower it and every property's Readiness KPI recomputes immediately.
 export function computePropertyReadiness({ property, competitors, roomMappings, ratePlanMappings, sourceConfigs }) {
   const activeCompetitors = competitors.filter((c) => c.status !== "Archived");
   const perCompetitor = activeCompetitors.map((c) =>
@@ -70,12 +77,20 @@ export function computePropertyReadiness({ property, competitors, roomMappings, 
       sourceConfigs: sourceConfigs.filter((s) => s.competitorId === c.id),
     })
   );
-  const score = perCompetitor.length ? Math.round(perCompetitor.reduce((sum, r) => sum + r.score, 0) / perCompetitor.length) : 0;
+  const mappingScore = perCompetitor.length ? Math.round(perCompetitor.reduce((sum, r) => sum + r.score, 0) / perCompetitor.length) : 0;
+  const minCompetitors = getAppSettings().comparisonRules.minCompetitors;
+  const meetsMinimumCompetitors = activeCompetitors.length >= minCompetitors;
+  // Averaging in a hard 0/100 "met the minimum?" check means falling short
+  // always pulls the score down, without letting a single competitor with
+  // full mapping coverage mask an otherwise too-thin competitor set.
+  const score = Math.round((mappingScore + (meetsMinimumCompetitors ? 100 : 0)) / 2);
 
   return {
     property, score,
     competitorCount: activeCompetitors.length,
     configuredCount: perCompetitor.filter((r) => r.score === 100).length,
+    minCompetitors,
+    meetsMinimumCompetitors,
     perCompetitor,
   };
 }

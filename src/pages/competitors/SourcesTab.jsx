@@ -9,6 +9,8 @@ import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { SOURCE_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 import { SourceConfigForm } from "./SourceConfigForm.jsx";
 
 const URL_REGEX = /^https?:\/\/.+\..+/i;
@@ -37,6 +39,8 @@ export function SourcesTab({ competitor }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  // Settings → Configuration Settings → Sources → "Flag Duplicate URLs".
+  const [sourceSettings] = usePersistedState("settings.competitors.sources", SOURCE_SETTINGS_DEFAULTS);
 
   const sources = useMemo(() => data.sourceConfigs.filter((s) => s.competitorId === competitor.id), [data.sourceConfigs, competitor.id]);
 
@@ -67,7 +71,7 @@ export function SourcesTab({ competitor }) {
   const rowStatus = (row) => {
     if (!row.url) return { key: "missing", label: "Missing", icon: HelpCircle, variant: "warning" };
     if (!URL_REGEX.test(row.url)) return { key: "invalid", label: "Invalid Format", icon: XCircle, variant: "danger" };
-    if ((urlCounts.get(row.url) || 0) > 1) return { key: "duplicate", label: "Duplicate", icon: AlertTriangle, variant: "danger" };
+    if (sourceSettings.flagDuplicates && (urlCounts.get(row.url) || 0) > 1) return { key: "duplicate", label: "Duplicate", icon: AlertTriangle, variant: "danger" };
     return { key: "valid", label: "Valid", icon: CheckCircle2, variant: "success" };
   };
 
@@ -76,7 +80,7 @@ export function SourcesTab({ competitor }) {
     for (const row of allRows) map.set(row.id, rowStatus(row));
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRows, urlCounts]);
+  }, [allRows, urlCounts, sourceSettings.flagDuplicates]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

@@ -9,6 +9,8 @@ import { EmptyState } from "../../components/ui/EmptyState.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { usePersistedState } from "../../hooks/usePersistedState.js";
+import { ROOM_MAPPING_SETTINGS_DEFAULTS } from "../../lib/competitorSettingsDefaults.js";
 import { RoomMappingForm } from "./RoomMappingForm.jsx";
 
 const STATUS_VARIANT = { Mapped: "success", "Needs Review": "warning", Unmapped: "danger" };
@@ -28,6 +30,9 @@ export function RoomMappingTab({ competitor }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  // Settings → Configuration Settings → Room Mapping → Confidence
+  // Threshold's real effect: mappings below this score are flagged here.
+  const [roomMappingSettings] = usePersistedState("settings.competitors.roomMapping", ROOM_MAPPING_SETTINGS_DEFAULTS);
 
   const rooms = useMemo(() => data.rooms.filter((r) => r.propertyId === competitor.propertyId && r.status !== "Archived"), [data.rooms, competitor.propertyId]);
   const mappings = useMemo(() => data.roomMappings.filter((m) => m.competitorId === competitor.id), [data.roomMappings, competitor.id]);
@@ -107,7 +112,14 @@ export function RoomMappingTab({ competitor }) {
                 )}
               </td>
               <td>{m.mappingType}</td>
-              <td className="tabular">{m.confidence}%</td>
+              <td className="tabular">
+                {m.confidence}%
+                {m.confidence < roomMappingSettings.confidenceThreshold && (
+                  <div className="table__cell-muted" style={{ color: "var(--color-warning)", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                    <AlertTriangle size={12} strokeWidth={2} /> Below threshold
+                  </div>
+                )}
+              </td>
               <td><Badge variant={STATUS_VARIANT[m.status] || "info"}>{m.status}</Badge></td>
               <td>
                 <div className="table__actions">
