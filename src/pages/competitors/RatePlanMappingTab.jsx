@@ -123,7 +123,7 @@ export function RatePlanMappingTab({ competitor }) {
         />
       </div>
 
-      <RatePlanMappingForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} ratePlans={ratePlans} roomMappings={roomMappings} competitorName={competitor.hotelName} />
+      <RatePlanMappingForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} ratePlans={ratePlans} roomMappings={roomMappings} competitorName={competitor.propertyName} />
 
       <ConfirmModal
         open={!!confirmDelete}

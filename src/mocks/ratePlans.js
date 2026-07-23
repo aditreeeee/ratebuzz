@@ -25,38 +25,34 @@ export function mealPlanLabel(code) {
 export const CANCELLATION_POLICIES = ["Free Cancellation (24h)", "Free Cancellation (72h)", "Non-Refundable", "Partial Refund"];
 
 // A Rate Plan is a long-lived pricing *strategy* — it never expires on its
-// own; its lifecycle is driven purely by this status. Its own `startDate`/
-// `endDate` (the "Pricing Range") are optional — an empty range means the
-// plan is always applicable — and are distinct from the per-row date ranges
-// on the Rooms it applies to (`PRICING_RANGES`, below), which can each carry
-// their own narrower window and terms.
+// own; its lifecycle is driven purely by this status. It has no applicability
+// window of its own: `PRICING_RANGES` (below) is the *only* place validity
+// dates live, one level down on each Rate Plan Room — a parent-level window
+// here would just be a second, easily-contradicting copy of that same
+// concept. A Pricing Range row with no dates (or its `alwaysApplicable` flag
+// set) is simply always active.
 export const RATE_PLAN_STATUSES = ["Draft", "Active", "Archived", "Inactive"];
 
 export let RATE_PLANS = [
   {
     id: "RP-3001", name: "Best Flexible Rate", mealPlan: "CP", cancellationPolicy: "Free Cancellation (24h)",
     status: "Active", taxInclusive: false, taxPercent: 12,
-    startDate: "", endDate: "", basePrice: 220,
   },
   {
     id: "RP-3002", name: "Advance Purchase Saver", mealPlan: "EP", cancellationPolicy: "Non-Refundable",
     status: "Active", taxInclusive: true, taxPercent: 12,
-    startDate: "", endDate: "", basePrice: 195,
   },
   {
     id: "RP-3003", name: "Suite All Inclusive", mealPlan: "AP", cancellationPolicy: "Free Cancellation (72h)",
     status: "Active", taxInclusive: false, taxPercent: 8,
-    startDate: "2026-12-15", endDate: "2027-01-10", basePrice: 340,
   },
   {
     id: "RP-3004", name: "Corporate Rate", mealPlan: "CP", cancellationPolicy: "Free Cancellation (24h)",
     status: "Active", taxInclusive: true, taxPercent: 20,
-    startDate: "", endDate: "", basePrice: null,
   },
   {
     id: "RP-3005", name: "Villa Half Board", mealPlan: "MAP", cancellationPolicy: "Partial Refund",
     status: "Inactive", taxInclusive: false, taxPercent: 5,
-    startDate: "2026-12-20", endDate: "2027-01-02", basePrice: 300,
   },
 ];
 
@@ -90,21 +86,21 @@ export let RATE_PLAN_ROOMS = [
 export let PRICING_RANGES = [
   {
     id: "PR-4000", ratePlanRoomId: "RPR-13001",
-    startDate: "2026-08-01", endDate: "2026-08-31", occupancy: "Double",
+    alwaysApplicable: false, startDate: "2026-08-01", endDate: "2026-08-31", occupancy: "Double",
     price: 235, currency: "USD", taxInclusive: false, taxPercent: 12,
     cancellationPolicy: "Free Cancellation (24h)", status: "Active",
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-20T09:00:00Z",
   },
   {
     id: "PR-4001", ratePlanRoomId: "RPR-13001",
-    startDate: "2026-09-01", endDate: "2026-09-30", occupancy: "",
+    alwaysApplicable: false, startDate: "2026-09-01", endDate: "2026-09-30", occupancy: "",
     price: 210, currency: "USD", taxInclusive: false, taxPercent: 12,
     cancellationPolicy: "Free Cancellation (24h)", status: "Active",
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-20T09:00:00Z",
   },
   {
     id: "PR-4002", ratePlanRoomId: "RPR-13003",
-    startDate: "2026-12-15", endDate: "2027-01-10", occupancy: "Triple",
+    alwaysApplicable: true, startDate: "", endDate: "", occupancy: "Triple",
     price: 380, currency: "USD", taxInclusive: false, taxPercent: 8,
     cancellationPolicy: "Free Cancellation (72h)", status: "Draft",
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-18T09:00:00Z",

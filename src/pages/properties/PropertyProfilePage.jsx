@@ -60,6 +60,19 @@ export function PropertyProfilePage() {
     });
     return counts;
   }, [data.ratePlanRooms, roomIds]);
+  // A Rate Plan has no applicability window of its own — Pricing Ranges (per
+  // Room) are the only validity mechanism, so this is a display aggregate.
+  const pricingRangeSummary = (ratePlanId) => {
+    const ratePlanRoomIds = data.ratePlanRooms.filter((rp) => rp.ratePlanId === ratePlanId).map((rp) => rp.id);
+    const rows = data.pricingRanges.filter((pr) => ratePlanRoomIds.includes(pr.ratePlanRoomId));
+    if (rows.length === 0) return "No pricing ranges yet";
+    if (rows.some((r) => r.alwaysApplicable || (!r.startDate && !r.endDate))) return "Always applicable";
+    const starts = rows.map((r) => r.startDate).filter(Boolean).sort();
+    const ends = rows.map((r) => r.endDate).filter(Boolean).sort();
+    if (!starts.length || !ends.length) return "Always applicable";
+    return `${starts[0]} – ${ends[ends.length - 1]}`;
+  };
+
   const ratePlans = useMemo(
     () => data.ratePlans.filter((rp) => ratePlanRoomCountByRatePlanId[rp.id] > 0),
     [data.ratePlans, ratePlanRoomCountByRatePlanId]
@@ -249,7 +262,7 @@ export function PropertyProfilePage() {
                   <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/portal/rate-plans/${rp.id}`)}>
                     <span>{rp.name} <span className="table__cell-muted">({ratePlanRoomCountByRatePlanId[rp.id]} room{ratePlanRoomCountByRatePlanId[rp.id] === 1 ? "" : "s"})</span></span>
                     <span className="table__cell-muted">
-                      {rp.startDate || rp.endDate ? `${rp.startDate || "…"} – ${rp.endDate || "…"}` : "Always applicable"}
+                      {pricingRangeSummary(rp.id)}
                     </span>
                   </div>
                 ))}

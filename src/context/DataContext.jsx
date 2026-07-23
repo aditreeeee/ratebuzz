@@ -410,7 +410,7 @@ export function DataProvider({ children }) {
   }
 
   const compSetApi = makeCollectionApi("compSets", "CSET", 5000, "name");
-  const competitorApi = makeCollectionApi("competitors", "CMP", 6000, "hotelName");
+  const competitorApi = makeCollectionApi("competitors", "CMP", 6000, "propertyName");
   const roomMappingApi = makeCollectionApi("roomMappings", "RMAP", 7000, "competitorRoomLabel");
   const ratePlanMappingApi = makeCollectionApi("ratePlanMappings", "RPMAP", 8000, "competitorRatePlanName");
   const sourceConfigApi = makeCollectionApi("sourceConfigs", "SRC", 9000, "sourceName");
@@ -500,13 +500,6 @@ export function DataProvider({ children }) {
         if (created.length) dispatch({ type: "COLLECTION_BULK_ADD", collection: "compSetMemberships", payload: created });
         return created;
       },
-      bulkRemoveCompetitorsFromCompSet: (competitorIds, compSetId) => {
-        const idsToRemove = state.compSetMemberships
-          .filter((m) => m.compSetId === compSetId && competitorIds.includes(m.competitorId))
-          .map((m) => m.id);
-        if (idsToRemove.length) dispatch({ type: "COLLECTION_BULK_DELETE", collection: "compSetMemberships", ids: idsToRemove });
-      },
-
       // Competitors — the primary collection, owned directly by a Property.
       // Fully functional with zero comp set memberships.
       addCompetitor: competitorApi.add,
@@ -524,7 +517,6 @@ export function DataProvider({ children }) {
       bulkChangePriorityCompetitors: competitorApi.bulkChangePriority,
       bulkDuplicateCompetitors: competitorApi.bulkDuplicate,
       bulkDeleteCompetitors: (ids) => dispatch({ type: "BULK_DELETE_COMPETITORS_CASCADE", ids }),
-      togglePinCompetitor: (competitor) => dispatch({ type: "COLLECTION_UPDATE", collection: "competitors", payload: stamp({ ...competitor, pinned: !competitor.pinned }) }),
       // There is no `setBenchmark` here on purpose: the benchmark is always
       // the Phase 1 Property record a competitor is scoped under
       // (`competitor.propertyId` -> `data.properties`), never a competitor
@@ -538,13 +530,11 @@ export function DataProvider({ children }) {
       addRoomMapping: roomMappingApi.add,
       updateRoomMapping: roomMappingApi.update,
       deleteRoomMapping: (id) => dispatch({ type: "DELETE_ROOM_MAPPING_CASCADE", payload: id }),
-      bulkDeleteRoomMappings: (ids) => dispatch({ type: "BULK_DELETE_ROOM_MAPPINGS_CASCADE", ids }),
 
       // Rate Plan Mapping
       addRatePlanMapping: ratePlanMappingApi.add,
       updateRatePlanMapping: ratePlanMappingApi.update,
       deleteRatePlanMapping: (id) => dispatch({ type: "COLLECTION_DELETE", collection: "ratePlanMappings", payload: id }),
-      bulkDeleteRatePlanMappings: ratePlanMappingApi.bulkDelete,
 
       // Source Configuration
       addSourceConfig: sourceConfigApi.add,
@@ -553,10 +543,6 @@ export function DataProvider({ children }) {
       restoreSourceConfig: sourceConfigApi.restore,
       duplicateSourceConfig: sourceConfigApi.duplicate,
       deleteSourceConfigPermanently: sourceConfigApi.deletePermanently,
-      bulkArchiveSourceConfigs: sourceConfigApi.bulkArchive,
-      bulkRestoreSourceConfigs: sourceConfigApi.bulkRestore,
-      bulkChangeStatusSourceConfigs: sourceConfigApi.bulkChangeStatus,
-      bulkDeleteSourceConfigs: sourceConfigApi.bulkDelete,
 
       // Properties
       addProperty: (data) => {
@@ -613,7 +599,6 @@ export function DataProvider({ children }) {
       updateRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp(room) }),
       archiveRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp({ ...room, status: "Archived" }) }),
       restoreRoom: (room) => dispatch({ type: "UPDATE_ROOM", payload: stamp({ ...room, status: "Active" }) }),
-      deleteRoom: (id) => dispatch({ type: "DELETE_ROOM", payload: id }),
       deleteRoomPermanently: (id) => dispatch({ type: "DELETE_ROOM", payload: id }),
       duplicateRoom: (room) => {
         const copy = stamp({ ...room, id: nextId(state.rooms, "RM", 2000), name: `${room.name} (Copy)` });
@@ -645,7 +630,6 @@ export function DataProvider({ children }) {
       updateRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp(ratePlan) }),
       archiveRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp({ ...ratePlan, status: "Archived" }) }),
       restoreRatePlan: (ratePlan) => dispatch({ type: "UPDATE_RATE_PLAN", payload: stamp({ ...ratePlan, status: "Active" }) }),
-      deleteRatePlan: (id) => dispatch({ type: "DELETE_RATE_PLAN", payload: id }),
       deleteRatePlanPermanently: (id) => dispatch({ type: "DELETE_RATE_PLAN", payload: id }),
       duplicateRatePlan: (ratePlan) => {
         const copy = stamp({ ...ratePlan, id: nextId(state.ratePlans, "RP", 3000), name: `${ratePlan.name} (Copy)` });
@@ -678,24 +662,7 @@ export function DataProvider({ children }) {
         state.ratePlanRooms
           .filter((rp) => rp.ratePlanId === ratePlanId)
           .map((rp) => ({ ...rp, pricingRanges: state.pricingRanges.filter((pr) => pr.ratePlanRoomId === rp.id) })),
-      addRatePlanRoom: (data) => {
-        const ratePlanRoom = stamp({ ...data, id: nextId(state.ratePlanRooms, "RPR", 13000) });
-        dispatch({ type: "COLLECTION_ADD", collection: "ratePlanRooms", payload: ratePlanRoom });
-        return ratePlanRoom;
-      },
-      updateRatePlanRoom: (ratePlanRoom) => dispatch({ type: "COLLECTION_UPDATE", collection: "ratePlanRooms", payload: stamp(ratePlanRoom) }),
       deleteRatePlanRoom: (id) => dispatch({ type: "DELETE_RATE_PLAN_ROOM_CASCADE", payload: id }),
-      bulkAddRatePlanRooms: (dataArray) => {
-        let cursor = state.ratePlanRooms;
-        const created = dataArray.map((d) => {
-          const ratePlanRoom = stamp({ ...d, id: nextId(cursor, "RPR", 13000) });
-          cursor = [ratePlanRoom, ...cursor];
-          return ratePlanRoom;
-        });
-        dispatch({ type: "COLLECTION_BULK_ADD", collection: "ratePlanRooms", payload: created });
-        return created;
-      },
-      bulkDeleteRatePlanRooms: (ids) => dispatch({ type: "BULK_DELETE_RATE_PLAN_ROOMS_CASCADE", ids }),
 
       // Pricing Ranges — a child collection of Rate Plan Rooms.
       // `pricingRangesForRatePlanRoom(ratePlanRoomId)` mirrors the scoping convention
@@ -710,17 +677,6 @@ export function DataProvider({ children }) {
       },
       updatePricingRange: (range) => dispatch({ type: "COLLECTION_UPDATE", collection: "pricingRanges", payload: stamp(range) }),
       deletePricingRange: (id) => dispatch({ type: "COLLECTION_DELETE", collection: "pricingRanges", payload: id }),
-      bulkAddPricingRanges: (dataArray) => {
-        let cursor = state.pricingRanges;
-        const created = dataArray.map((d) => {
-          const range = stamp({ ...d, id: nextId(cursor, "PR", 4000) });
-          cursor = [range, ...cursor];
-          return range;
-        });
-        dispatch({ type: "COLLECTION_BULK_ADD", collection: "pricingRanges", payload: created });
-        return created;
-      },
-      bulkDeletePricingRanges: (ids) => dispatch({ type: "COLLECTION_BULK_DELETE", collection: "pricingRanges", ids }),
 
       // Centralized reconciliation for the Rate Plan form's in-memory Rooms
       // draft. `ratePlanRoomsDraft` is shaped

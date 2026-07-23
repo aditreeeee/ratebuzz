@@ -22,7 +22,7 @@ function pct(numerator, denominator) {
 }
 
 export function computeCompetitorReadiness({ competitor, roomMappings, ratePlanMappings, sourceConfigs }) {
-  const infoComplete = !!(competitor.hotelName && competitor.country && competitor.city && (competitor.website || (competitor.otaUrls || []).length > 0));
+  const infoComplete = !!(competitor.propertyName && competitor.country && competitor.city && (competitor.website || (competitor.otaUrls || []).length > 0));
   const hasRoomMapping = roomMappings.length > 0;
   const hasRatePlanMapping = ratePlanMappings.length > 0;
   const hasSourceConfigured = sourceConfigs.some((s) => !!s.sourceUrl);
@@ -89,7 +89,7 @@ function readinessBucket(score) {
 export { readinessBucket };
 
 const ACTIVITY_LABELS = {
-  competitor: (r) => ({ label: r.hotelName, meta: "Competitor" }),
+  competitor: (r) => ({ label: r.propertyName, meta: "Competitor" }),
   roomMapping: (r) => ({ label: r.competitorRoomLabel, meta: "Room Mapping" }),
   ratePlanMapping: (r) => ({ label: r.competitorRatePlanName, meta: "Rate Plan Mapping" }),
   // Sources absorbs what used to be a separate "URL Record" activity type —

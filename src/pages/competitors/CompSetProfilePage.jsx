@@ -4,6 +4,7 @@ import {
   Target, MapPin, Pencil, Copy, Archive, RotateCcw, Trash2, Plus, X, Users2, Award, Building2,
 } from "lucide-react";
 import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
+import { propertyScopedCrumbs } from "../../lib/breadcrumbs.js";
 import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { StatusBadge } from "../../components/ui/Badge.jsx";
@@ -109,7 +110,7 @@ export function CompSetProfilePage() {
 
   const handleRemoveMember = (competitor) => {
     data.removeCompSetMembership(compSet.id, competitor.id);
-    toast.info(`${competitor.hotelName} removed from ${compSet.name}.`);
+    toast.info(`${competitor.propertyName} removed from ${compSet.name}.`);
   };
 
   const togglePicked = (id) => setPicked((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
@@ -124,8 +125,7 @@ export function CompSetProfilePage() {
     <div className="page-container--narrow">
       <Breadcrumbs
         items={[
-          { label: "Properties", to: "/portal/properties" },
-          ...(property ? [{ label: property.name, to: `/portal/properties/${property.id}` }] : []),
+          ...propertyScopedCrumbs(property),
           { label: "Competitive Sets", to: "/portal/comp-sets" },
           { label: compSet.name },
         ]}
@@ -253,10 +253,10 @@ export function CompSetProfilePage() {
                 {memberCompetitors.map((c) => (
                   <div key={c.id} className="master-manager__row">
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate(`/portal/competitors/${c.id}`)}>
-                      <span className="master-manager__name">{c.hotelName}</span>
+                      <span className="master-manager__name">{c.propertyName}</span>
                       <div className="table__cell-muted">{c.city} &middot; {property?.name || "—"}</div>
                     </div>
-                    <button type="button" className="master-manager__icon-btn master-manager__icon-btn--danger" onClick={() => handleRemoveMember(c)} aria-label={`Remove ${c.hotelName}`}>
+                    <button type="button" className="master-manager__icon-btn master-manager__icon-btn--danger" onClick={() => handleRemoveMember(c)} aria-label={`Remove ${c.propertyName}`}>
                       <X size={14} strokeWidth={2} />
                     </button>
                   </div>
@@ -292,8 +292,8 @@ export function CompSetProfilePage() {
               const checked = picked.includes(c.id);
               return (
                 <div key={c.id} className="master-manager__row" style={{ cursor: "pointer" }} onClick={() => togglePicked(c.id)}>
-                  <Checkbox checked={checked} onChange={() => togglePicked(c.id)} label={c.hotelName} />
-                  <span className="master-manager__name">{c.hotelName}</span>
+                  <Checkbox checked={checked} onChange={() => togglePicked(c.id)} label={c.propertyName} />
+                  <span className="master-manager__name">{c.propertyName}</span>
                 </div>
               );
             })}

@@ -179,7 +179,7 @@ export function SourcesTab({ competitor }) {
         />
       </div>
 
-      <SourceConfigForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} competitorName={competitor.hotelName} />
+      <SourceConfigForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} competitorName={competitor.propertyName} />
 
       <ConfirmModal
         open={!!confirmDelete}

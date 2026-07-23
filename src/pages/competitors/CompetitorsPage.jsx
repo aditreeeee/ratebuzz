@@ -40,7 +40,7 @@ function kpiRingVariant(pct) {
 
 // Module 1 (redesigned) — Competitors is Phase 2's primary workflow and
 // homepage: Select Benchmark Property (the left filter panel) -> Add
-// Competitor Hotels -> Room Mapping -> Rate Plan Mapping -> Source
+// Competitor Properties -> Room Mapping -> Rate Plan Mapping -> Source
 // Configuration -> Validation, all owned directly by the competitor with
 // zero requirement to belong to any Competitive Set. Comp sets are reachable
 // from here only as an optional filter facet plus the "Manage Competitive
@@ -59,7 +59,7 @@ export function CompetitorsPage() {
   const [groupFilter, setGroupFilter] = usePersistedState("competitors.compSetFilter", []);
   const [statusFilter, setStatusFilter] = usePersistedState("competitors.statusFilter", []);
   const [readinessFilter, setReadinessFilter] = usePersistedState("competitors.readinessFilter", []);
-  const [sortKey, setSortKey] = usePersistedState("competitors.sortKey", "hotelName");
+  const [sortKey, setSortKey] = usePersistedState("competitors.sortKey", "propertyName");
   const [sortDir, setSortDir] = usePersistedState("competitors.sortDir", "asc");
   const [page, setPage] = useState(1);
 
@@ -79,6 +79,14 @@ export function CompetitorsPage() {
   const competitorsInScope = useMemo(
     () => data.competitors.filter((c) => selectedPropertyIds.includes(c.propertyId)),
     [data.competitors, selectedPropertyIds]
+  );
+  // Drives conditional benchmark-name display in the table: with exactly one
+  // benchmark property in view, the per-row property name is redundant (it's
+  // already shown once in the "Benchmark Property" stat card above); with
+  // more than one, each competitor needs its own benchmark property labeled.
+  const benchmarkPropertyIdsInScope = useMemo(
+    () => new Set(competitorsInScope.map((c) => c.propertyId)),
+    [competitorsInScope]
   );
   const groupsInScope = useMemo(
     () => data.compSets.filter((g) => selectedPropertyIds.includes(g.propertyId) && g.status !== "Archived"),
@@ -141,7 +149,7 @@ export function CompetitorsPage() {
       result = result.filter((c) => {
         const groups = groupsForCompetitor(c.id);
         const urls = [c.website, ...(c.otaUrls || []).map((o) => o.url)];
-        return [c.hotelName, propertyName(c.propertyId), c.city, ...tagsForCompetitor(c.id), ...groups.map((g) => g.name), ...urls]
+        return [c.propertyName, propertyName(c.propertyId), c.city, ...tagsForCompetitor(c.id), ...groups.map((g) => g.name), ...urls]
           .some((f) => String(f || "").toLowerCase().includes(q));
       });
     }
@@ -187,7 +195,7 @@ export function CompetitorsPage() {
   const selection = useSelection(visibleIds);
 
   // Column widths are hand-tuned for a stable, enterprise-grade grid:
-  // Competitor Hotel is the only column without an explicit width, so
+  // Competitor Property is the only column without an explicit width, so
   // `table-layout: fixed` gives it all the remaining space (the widest
   // column by construction, not by guesswork) — including whatever used to
   // go to the removed Brand column, with no other width needing to change.
@@ -195,16 +203,16 @@ export function CompetitorsPage() {
   // Mapping and Source Status get enough room for their badge to never wrap.
   const columns = [
     { key: "select", label: <Checkbox checked={selection.allChecked} indeterminate={selection.someChecked} onChange={selection.toggleAll} label="Select all" />, width: 40 },
-    { key: "hotel", label: "Competitor Hotel", sortable: true },
+    { key: "propertyName", label: "Competitor Property", sortable: true },
     { key: "city", label: "City", sortable: true, width: 88 },
-    { key: "star", label: "Star", sortable: true, width: 60 },
+    { key: "starRating", label: "Star", sortable: true, width: 60 },
     { key: "groups", label: "Comp Sets", width: 160 },
     { key: "roomMapping", label: "Room Mapping", width: 116 },
     { key: "ratePlanMapping", label: "Rate Plan Mapping", width: 124 },
     { key: "source", label: "Source Status", width: 116 },
     { key: "readiness", label: "Readiness", width: 76 },
     { key: "status", label: "Status", sortable: true, width: 88 },
-    { key: "lastUpdated", label: "Last Updated", sortable: true, width: 102 },
+    { key: "lastModifiedAt", label: "Last Updated", sortable: true, width: 102 },
     { key: "actions", label: "", width: 122 },
   ];
   // Floor for the flexible "hotel" column, plus every fixed column's own
@@ -216,20 +224,28 @@ export function CompetitorsPage() {
   const openCreate = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (c) => { setEditing(c); setFormOpen(true); };
 
-  const handleSubmit = (form) => {
+  // `targetPropertyIds` is only ever populated for create (multi-property
+  // clone) — CompetitorForm returns it non-null exactly when it showed the
+  // multi-property picker. Each target property gets its own fully
+  // independent Competitor Property record via the same single-add API.
+  const handleSubmit = (form, targetPropertyIds) => {
     if (editing) {
       data.updateCompetitor({ ...editing, ...form });
-      toast.success(`${form.hotelName} updated.`);
+      toast.success(`${form.propertyName} updated.`);
+    } else if (targetPropertyIds && targetPropertyIds.length > 1) {
+      targetPropertyIds.forEach((propertyId) => data.addCompetitor({ ...form, propertyId }));
+      toast.success(`${form.propertyName} created for ${targetPropertyIds.length} properties.`);
     } else {
-      const created = data.addCompetitor({ ...form, propertyId: selectedProperty?.id || selectedPropertyIds[0], pinned: false, futurePropertyId: null });
-      toast.success(`${created.hotelName} created.`);
+      const propertyId = (targetPropertyIds && targetPropertyIds[0]) || selectedProperty?.id || selectedPropertyIds[0];
+      const created = data.addCompetitor({ ...form, propertyId });
+      toast.success(`${created.propertyName} created.`);
     }
     setFormOpen(false);
   };
 
   const handleDuplicate = (c) => { const copy = data.duplicateCompetitor(c); toast.info(`Duplicated as ${copy.id}.`); };
-  const handleArchive = (c) => { data.archiveCompetitor(c); toast.info(`${c.hotelName} archived.`); };
-  const handleDelete = () => { data.deleteCompetitorPermanently(confirmDelete.id); toast.success(`${confirmDelete.hotelName} permanently deleted.`); setConfirmDelete(null); };
+  const handleArchive = (c) => { data.archiveCompetitor(c); toast.info(`${c.propertyName} archived.`); };
+  const handleDelete = () => { data.deleteCompetitorPermanently(confirmDelete.id); toast.success(`${confirmDelete.propertyName} permanently deleted.`); setConfirmDelete(null); };
   const handleRemoveFromGroup = (competitorId, compSetId, groupName) => {
     data.removeCompSetMembership(compSetId, competitorId);
     toast.info(`Removed from ${groupName}.`);
@@ -248,7 +264,7 @@ export function CompetitorsPage() {
   };
 
   const exportColumns = [
-    { label: "Hotel Name", value: (c) => c.hotelName },
+    { label: "Competitor Property Name", value: (c) => c.propertyName },
     { label: "Property", value: (c) => propertyName(c.propertyId) },
     { label: "City", value: (c) => c.city },
     { label: "Country", value: (c) => c.country },
@@ -287,17 +303,25 @@ export function CompetitorsPage() {
         <div className="property-scoped-layout__content">
           {hasPropertySelection && (
             <div className="page-section">
-              <div className="stat-row stat-row--kpi">
+              {/* Benchmark is always the currently-selected property/properties —
+                  never manually chosen, never editable — so it's a single fixed
+                  fact card, not a KPI tile among equals. Switching the selected
+                  property (left filter panel) automatically switches this. With
+                  multiple properties selected, this stays exactly one card
+                  (never one per property) listing all of them. */}
+              <Card className="benchmark-property-card">
+                <Award size={16} strokeWidth={2} />
+                <span className="benchmark-property-card__label">
+                  {selectedProperties.length > 1 ? "Benchmark Properties" : "Benchmark Property"}:
+                </span>
+                <span className="benchmark-property-card__value">
+                  {selectedProperty ? selectedProperty.name : selectedProperties.map((p) => p.name).join(", ")}
+                </span>
+              </Card>
+              <div className="stat-row stat-row--kpi" style={{ marginTop: "var(--space-3)" }}>
                 <Card className="stat-card">
                   <div className="stat-card__icon"><Users2 size={20} strokeWidth={2} /></div>
                   <div className="stat-card__body"><div className="stat-card__value tabular">{summary.total}</div><div className="stat-card__label">Competitors</div></div>
-                </Card>
-                <Card className="stat-card">
-                  <div className="stat-card__icon"><Award size={20} strokeWidth={2} /></div>
-                  <div className="stat-card__body">
-                    <div className="stat-card__value stat-card__value--text">{selectedProperty ? selectedProperty.name : `${selectedPropertyIds.length} Properties`}</div>
-                    <div className="stat-card__label">Benchmark Property</div>
-                  </div>
                 </Card>
                 <Card className="stat-card">
                   <div className={`kpi-ring kpi-ring--${kpiRingVariant(summary.roomMappingPct)}`} style={{ "--ring-pct": summary.roomMappingPct }}><span className="kpi-ring__value tabular">{summary.roomMappingPct}%</span></div>
@@ -380,7 +404,7 @@ export function CompetitorsPage() {
                     <EmptyState
                       icon={Users2}
                       title="No competitors yet"
-                      message="Add a competitor hotel, then map its rooms and rate plans to your property's own rooms and rate plans — that mapping is what future rate collection compares. Competitive Sets are entirely optional and can be created later to organize competitors into market segments."
+                      message="Add a competitor property, then map its rooms and rate plans to your property's own rooms and rate plans — that mapping is what future rate collection compares. Competitive Sets are entirely optional and can be created later to organize competitors into market segments."
                       action={
                         <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
                           <Button variant="primary" size="sm" icon={Plus} onClick={openCreate}>Add First Competitor</Button>
@@ -404,10 +428,15 @@ export function CompetitorsPage() {
                   const overflowGroups = groups.slice(2);
                   return (
                     <tr key={c.id}>
-                      <td><Checkbox checked={selection.selected.includes(c.id)} onChange={() => selection.toggle(c.id)} label={`Select ${c.hotelName}`} /></td>
+                      <td><Checkbox checked={selection.selected.includes(c.id)} onChange={() => selection.toggle(c.id)} label={`Select ${c.propertyName}`} /></td>
                       <td className="row-link" onClick={() => navigate(`/portal/competitors/${c.id}`)}>
-                        <div className="table__cell-primary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.hotelName}</div>
-                        <div className="table__cell-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{propertyName(c.propertyId)}</div>
+                        <div className="table__cell-primary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.propertyName}</div>
+                        {/* Only shown when competitors from more than one benchmark property are
+                            visible together — with a single benchmark it's already shown once above
+                            in the "Benchmark Property" stat card, so repeating it per row is noise. */}
+                        {benchmarkPropertyIdsInScope.size > 1 && (
+                          <div className="table__cell-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{propertyName(c.propertyId)}</div>
+                        )}
                       </td>
                       <td className="table__cell-muted" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.city}</td>
                       <td className="tabular" style={{ whiteSpace: "nowrap" }}>{c.starRating ? `${c.starRating}★` : "—"}</td>
@@ -472,7 +501,14 @@ export function CompetitorsPage() {
         </div>
       </div>
 
-      <CompetitorForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} />
+      <CompetitorForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSubmit={handleSubmit}
+        initial={editing}
+        benchmarkProperties={editing ? [] : selectedProperties}
+        existingCompetitors={data.competitors}
+      />
 
       <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} defaultEntityType="competitors" />
 
@@ -497,7 +533,7 @@ export function CompetitorsPage() {
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
         title="Delete Competitor Permanently"
-        message={`Permanently delete "${confirmDelete?.hotelName}"? Its mappings, sources, and URLs will also be removed — any Competitive Sets it belongs to are unaffected. This cannot be undone.`}
+        message={`Permanently delete "${confirmDelete?.propertyName}"? Its mappings, sources, and URLs will also be removed — any Competitive Sets it belongs to are unaffected. This cannot be undone.`}
         confirmLabel="Delete Permanently"
         danger
       />

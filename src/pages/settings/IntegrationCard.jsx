@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PlugZap, Save, Loader2 } from "lucide-react";
+import { PlugZap, Save } from "lucide-react";
 import { Card } from "../../components/ui/Card.jsx";
 import { Field, Input, Select } from "../../components/ui/Input.jsx";
 import { Badge } from "../../components/ui/Badge.jsx";
@@ -73,7 +73,7 @@ export function IntegrationCard({ definition }) {
         </div>
 
         <div className="integration-card__footer">
-          <Button variant="ghost" size="sm" icon={Loader2} disabled type="button">Test Connection</Button>
+          <Button variant="ghost" size="sm" icon={PlugZap} disabled type="button" title="Requires a live backend — not available in this preview">Test Connection</Button>
           <Button variant="primary" size="sm" icon={Save} type="submit">Save Configuration</Button>
         </div>
       </form>

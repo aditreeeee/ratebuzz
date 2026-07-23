@@ -60,7 +60,7 @@ export function GlobalSearch() {
     const competitors = data.competitors
       .filter((c) => {
         const propertyName = data.properties.find((p) => p.id === c.propertyId)?.name;
-        return [c.id, c.hotelName, propertyName, c.city, c.country].some((f) => String(f || "").toLowerCase().includes(q));
+        return [c.id, c.propertyName, propertyName, c.city, c.country].some((f) => String(f || "").toLowerCase().includes(q));
       })
       .slice(0, MAX_PER_GROUP);
 
@@ -158,7 +158,7 @@ export function GlobalSearch() {
               <div className="global-search__group-label"><Award size={12} strokeWidth={2} /> Competitors</div>
               {results.competitors.map((c) => (
                 <button key={c.id} className="global-search__item" onClick={() => goTo(`/portal/competitors/${c.id}`)}>
-                  <span className="global-search__item-name">{c.hotelName}</span>
+                  <span className="global-search__item-name">{c.propertyName}</span>
                   <span className="global-search__item-meta tabular">{c.city}, {c.country}</span>
                 </button>
               ))}

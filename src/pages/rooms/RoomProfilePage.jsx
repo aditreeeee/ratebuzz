@@ -5,6 +5,7 @@ import {
   LayoutGrid, Layers, Users, Sofa, Heart, Tag, StickyNote, Plus,
 } from "lucide-react";
 import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
+import { propertyScopedCrumbs } from "../../lib/breadcrumbs.js";
 import { Tabs } from "../../components/ui/Tabs.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
@@ -49,6 +50,20 @@ export function RoomProfilePage() {
     return data.ratePlans.filter((rp) => ratePlanIds.has(rp.id));
   }, [data.ratePlans, data.ratePlanRooms, room]);
 
+  // A Rate Plan has no applicability window of its own — Pricing Ranges are
+  // the only validity mechanism, scoped to this specific room's Rate Plan
+  // Room row (a Rate Plan can have different Pricing Ranges per room).
+  const pricingRangeSummaryForRoom = (ratePlanId) => {
+    const ratePlanRoomId = data.ratePlanRooms.find((rp) => rp.ratePlanId === ratePlanId && rp.roomId === room.id)?.id;
+    const rows = data.pricingRanges.filter((pr) => pr.ratePlanRoomId === ratePlanRoomId);
+    if (rows.length === 0) return "No pricing ranges yet";
+    if (rows.some((r) => r.alwaysApplicable || (!r.startDate && !r.endDate))) return "Always applicable";
+    const starts = rows.map((r) => r.startDate).filter(Boolean).sort();
+    const ends = rows.map((r) => r.endDate).filter(Boolean).sort();
+    if (!starts.length || !ends.length) return "Always applicable";
+    return `${starts[0]} – ${ends[ends.length - 1]}`;
+  };
+
   if (!room) {
     return (
       <div>
@@ -84,8 +99,7 @@ export function RoomProfilePage() {
     <div>
       <Breadcrumbs
         items={[
-          { label: "Properties", to: "/portal/properties" },
-          ...(property ? [{ label: property.name, to: `/portal/properties/${property.id}` }] : []),
+          ...propertyScopedCrumbs(property),
           { label: "Rooms", to: "/portal/rooms" },
           { label: room.name },
         ]}
@@ -224,7 +238,7 @@ export function RoomProfilePage() {
                   <div key={rp.id} className="detail-linked-item" style={{ cursor: "pointer" }} onClick={() => navigate(`/portal/rate-plans/${rp.id}`)}>
                     <span>{rp.name}</span>
                     <span className="table__cell-muted">
-                      {rp.startDate || rp.endDate ? `${rp.startDate || "…"} – ${rp.endDate || "…"}` : "Always applicable"}
+                      {pricingRangeSummaryForRoom(rp.id)}
                     </span>
                   </div>
                 ))}

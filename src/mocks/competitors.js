@@ -48,27 +48,36 @@ export let COMP_SETS = [
   },
 ];
 
-// Competitors are the primary collection — owned directly by a Property
-// (`propertyId`), creatable and fully functional with zero group
-// memberships. The benchmark is never a competitor: it's always the Phase 1
-// Property record itself (see lib/competitorReadiness.js and every profile
-// page's "Benchmark Property" panel) — a competitor can only ever be
-// *compared against* that property's own rooms and rate plans, never be
-// promoted to stand in for it.
+// Competitors ("Competitor Properties") are the primary collection — owned
+// directly by a Property (`propertyId`), creatable and fully functional with
+// zero group memberships. The benchmark is never a competitor: it's always
+// the Phase 1 Property record itself (see lib/competitorReadiness.js and
+// every profile page's "Benchmark Property" panel) — a competitor can only
+// ever be *compared against* that property's own rooms and rate plans, never
+// be promoted to stand in for it.
+//
+// A Competitor Property is intentionally a parent-only entity: `propertyName`
+// plus location/priority/status metadata, nothing comparison-shaped. Actual
+// comparison detail lives one layer down, keyed by `competitorId`, in
+// `ROOM_MAPPINGS` and `RATE_PLAN_MAPPINGS` below — and, through
+// `RATE_PLAN_MAPPINGS.internalRatePlanId`, joins straight into this
+// property's own `PRICING_RANGES` (src/mocks/ratePlans.js). Phase 3 will read
+// through that same join to compare Pricing Ranges, Meal Plans, Occupancy,
+// Date/Time Range, Cancellation Policy, Taxes & Fees, and Currency — no new
+// mock tables are needed for that; the join path already exists.
 export let COMPETITORS = [
   {
     id: "CMP-6000", propertyId: "PROP-1001",
-    hotelName: "Grand Palace Resort",
+    propertyName: "Grand Palace Resort",
     country: "United States", state: "Florida", city: "Miami", address: "123 Ocean Drive, Miami, FL 33139",
     website: "https://grandpalace.example.com",
     otaUrls: [{ label: "Booking.com", url: "https://www.booking.com/hotel/us/grand-palace-example.html" }],
     starRating: 5, distance: 1.2, priority: "High", status: "Active", notes: "",
-    pinned: true, futurePropertyId: null,
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-20T09:00:00Z",
   },
   {
     id: "CMP-6001", propertyId: "PROP-1001",
-    hotelName: "Ocean Crest Hotel",
+    propertyName: "Ocean Crest Hotel",
     country: "United States", state: "Florida", city: "Miami", address: "48 Collins Ave, Miami, FL 33139",
     website: "https://oceancrest.example.com",
     otaUrls: [
@@ -76,36 +85,32 @@ export let COMPETITORS = [
       { label: "Expedia", url: "https://www.expedia.com/Miami-Hotels-Ocean-Crest.h123.Hotel-Information" },
     ],
     starRating: 5, distance: 0.8, priority: "High", status: "Active", notes: "Strong OTA visibility.",
-    pinned: false, futurePropertyId: null,
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-18T09:00:00Z",
   },
   {
     id: "CMP-6002", propertyId: "PROP-1001",
-    hotelName: "Bayview Suites",
+    propertyName: "Bayview Suites",
     country: "United States", state: "Florida", city: "Miami", address: "210 Bay Rd, Miami, FL 33139",
     website: "https://bayviewsuites.example.com",
     otaUrls: [],
     starRating: 4, distance: 2.1, priority: "Medium", status: "Active", notes: "",
-    pinned: false, futurePropertyId: null,
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-10T09:00:00Z",
   },
   {
     id: "CMP-6003", propertyId: "PROP-1002",
-    hotelName: "Meridian Business Tower",
+    propertyName: "Meridian Business Tower",
     country: "United States", state: "New York", city: "New York", address: "77 Park Ave, New York, NY 10016",
     website: "https://meridianbiztower.example.com",
     otaUrls: [{ label: "Expedia", url: "https://www.expedia.com/New-York-Hotels-Meridian-Business.h456.Hotel-Information" }],
     starRating: 4, distance: 0.4, priority: "High", status: "Active", notes: "",
-    pinned: true, futurePropertyId: null,
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-14T09:00:00Z",
   },
   {
     id: "CMP-6004", propertyId: "PROP-1001",
-    hotelName: "Seaside Retreat Villas",
+    propertyName: "Seaside Retreat Villas",
     country: "United States", state: "Florida", city: "Miami", address: "5 Shoreline Ct, Miami, FL 33139",
     website: "", otaUrls: [],
     starRating: 4, distance: 3.4, priority: "Low", status: "Active", notes: "Not yet configured — no group, no mappings.",
-    pinned: false, futurePropertyId: null,
     lastModifiedBy: "A. Whitfield", lastModifiedAt: "2026-06-05T09:00:00Z",
   },
 ];

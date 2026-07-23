@@ -6,6 +6,10 @@
 // (or equal, since date-only ranges are inclusive on both ends). A blank
 // start/end means "unbounded" in that direction. Adjacent-but-not-touching
 // ranges (one ends the day before the other starts) are NOT an overlap.
+// A row with `alwaysApplicable: true` is unbounded by construction — the UI
+// (PricingRangesTable) always clears its startDate/endDate to "" the moment
+// that flag is set, so it naturally falls into the blank-start/blank-end case
+// here with no separate code path needed.
 export function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   const aS = aStart ? new Date(aStart).getTime() : -Infinity;
   const aE = aEnd ? new Date(aEnd).getTime() : Infinity;

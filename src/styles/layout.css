@@ -113,6 +113,14 @@
 @media (max-width: 1100px) { .stat-row--kpi { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 640px) { .stat-row--kpi { grid-template-columns: repeat(2, 1fr); } }
 
+/* Fixed, read-only fact — never a KPI, never editable, always exactly one
+   card regardless of how many benchmark properties are selected. Compact
+   horizontal strip rather than a full stat tile since it's a single fact,
+   not a metric. */
+.benchmark-property-card { display: flex; align-items: center; gap: 8px; padding: 12px 16px; color: var(--color-teal); }
+.benchmark-property-card__label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-faint); }
+.benchmark-property-card__value { font-size: 14px; font-weight: 800; color: var(--color-twilight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Miniature circular progress indicator used inside a KPI tile's icon slot
    in place of a plain icon, for percentage-based KPIs (readiness/mapping/
    coverage) — same conic-gradient technique as `.readiness-ring`, just

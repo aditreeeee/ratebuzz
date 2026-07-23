@@ -10,7 +10,7 @@ const ENTITY_TYPES = [
   { key: "properties", label: "Properties", icon: Building2, requiredFields: ["name", "country", "city"] },
   { key: "rooms", label: "Rooms", icon: BedDouble, requiredFields: ["name", "roomType"] },
   { key: "ratePlans", label: "Rate Plans", icon: Tag, requiredFields: ["name"] },
-  { key: "competitors", label: "Competitors", icon: Target, requiredFields: ["hotelName", "country", "city"] },
+  { key: "competitors", label: "Competitors", icon: Target, requiredFields: ["propertyName", "country", "city"] },
   { key: "competitorUrls", label: "URLs", icon: Link2, requiredFields: ["label", "url"] },
   { key: "roomMapping", label: "Room Mapping", icon: BedDouble, requiredFields: ["internalRoomId", "competitorRoomLabel"] },
   { key: "ratePlanMapping", label: "Rate Plan Mapping", icon: Tag, requiredFields: ["internalRatePlanId", "competitorRatePlanName"] },
@@ -34,9 +34,9 @@ function parseCSV(text) {
 // (no-new-dependency constraint), so a real .xlsx upload is simulated with a
 // short "parsing" delay and this fixed sample payload.
 const CANNED_EXCEL_ROWS = [
-  { name: "Sample Row 1", country: "United States", city: "Austin", roomType: "Deluxe", basePrice: "199" },
-  { name: "Sample Row 2", country: "United States", city: "Denver", roomType: "Superior", basePrice: "159" },
-  { name: "Sample Row 3 (incomplete)", country: "", city: "", roomType: "", basePrice: "" },
+  { name: "Sample Row 1", country: "United States", city: "Austin", roomType: "Deluxe" },
+  { name: "Sample Row 2", country: "United States", city: "Denver", roomType: "Superior" },
+  { name: "Sample Row 3 (incomplete)", country: "", city: "", roomType: "" },
 ];
 
 export function ImportWizard({ open, onClose, defaultEntityType = "properties" }) {

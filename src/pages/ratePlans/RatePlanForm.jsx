@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Sparkles, LayoutGrid, UtensilsCrossed, Layers, Ban, Percent,
-  Check, AlertCircle, RotateCcw, ChevronUp, ChevronDown, Copy, Trash2, Plus,
+  Sparkles, LayoutGrid, UtensilsCrossed, Percent as PricingIcon, Ban, Percent,
+  Check, AlertCircle, RotateCcw, ChevronUp, ChevronDown, Trash2, Info,
 } from "lucide-react";
 import { Modal, ConfirmModal } from "../../components/ui/Modal.jsx";
 import { Field, Input, Select } from "../../components/ui/Input.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { Card } from "../../components/ui/Card.jsx";
+import { Checkbox } from "../../components/ui/Checkbox.jsx";
 import { FeatureChipGrid } from "../../components/ui/FeatureChipGrid.jsx";
 import { ratePlanFeatureIcon } from "../../lib/ratePlanFeatureIcons.js";
 import { MEAL_PLANS, CANCELLATION_POLICIES, RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
@@ -28,10 +29,26 @@ function blankRatePlanRoomCard(roomId = "", locked = false) {
   };
 }
 
-// `startDate`/`endDate` (the "Pricing Range") are optional — an empty range
-// means this rate plan is always applicable. `basePrice` is likewise
-// optional: it's a default/base selling price, not required when pricing is
-// fully defined by the Rooms' own Pricing Ranges instead. `ratePlanRooms`
+// Cloning: a Rate Plan's Pricing Ranges (plus its Meal Plan/Cancellation/Tax
+// fields, which already live once on the parent Rate Plan record and so are
+// inherently shared) are duplicated onto every newly-selected room. When a
+// template card with rows already exists, new cards clone that template's
+// Pricing Range rows (fresh temp ids) instead of starting blank, so
+// multi-room/property selection produces identical configuration everywhere.
+function cloneRatePlanRoomCard(roomId, templateCard) {
+  return {
+    id: `NEW-${Math.random().toString(36).slice(2, 10)}`,
+    isNew: true,
+    roomId,
+    pricingRanges: (templateCard?.pricingRanges || []).map((r) => ({
+      ...r, id: `NEW-${Math.random().toString(36).slice(2, 10)}`, isNew: true,
+    })),
+  };
+}
+
+// A Rate Plan has no applicability window of its own — Pricing Ranges (one
+// level down, per Room) are the only validity mechanism; each row is either
+// bounded by its own Start/End Date or marked Always Applicable. `ratePlanRooms`
 // holds the in-progress room cards (each with its own in-progress Pricing
 // Range rows) this form is editing; they're only reconciled into
 // DataContext's `ratePlanRooms`/`pricingRanges` collections on submit, via
@@ -39,7 +56,6 @@ function blankRatePlanRoomCard(roomId = "", locked = false) {
 const EMPTY = {
   name: "", mealPlan: MEAL_PLANS[0], cancellationPolicy: CANCELLATION_POLICIES[0],
   status: "Draft", taxInclusive: false, taxPercent: 0,
-  startDate: "", endDate: "", basePrice: "",
   partialRefundAllowed: false, refundPercent: 50, refundUntilValue: 24, refundUntilUnit: REFUND_UNTIL_UNITS[0],
   ratePlanRooms: [],
 };
@@ -51,9 +67,6 @@ function validate(form) {
     errors.taxPercent = "Tax percent must be a number.";
   } else if (Number(form.taxPercent) < 0) {
     errors.taxPercent = "Tax percent cannot be negative.";
-  }
-  if (form.startDate && form.endDate && new Date(form.endDate) < new Date(form.startDate)) {
-    errors.endDate = "End date must be on or after the start date.";
   }
   if (form.partialRefundAllowed) {
     if (form.refundPercent === "" || form.refundPercent === null || Number.isNaN(Number(form.refundPercent))) {
@@ -71,7 +84,7 @@ function validate(form) {
 }
 
 const SECTION_FIELDS = {
-  overview: ["name", "startDate", "endDate", "basePrice"],
+  overview: ["name", "ratePlanRooms"],
   mealPlan: ["mealPlan"],
   rooms: ["ratePlanRooms"],
   cancellation: ["cancellationPolicy", "partialRefundAllowed", "refundPercent", "refundUntilValue", "refundUntilUnit"],
@@ -81,12 +94,12 @@ const SECTION_FIELDS = {
 const SECTIONS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
   { key: "mealPlan", label: "Meal Plan", icon: UtensilsCrossed },
-  { key: "rooms", label: "Rooms", icon: Layers },
+  { key: "rooms", label: "Pricing Ranges", icon: PricingIcon },
   { key: "cancellation", label: "Cancellation Policy", icon: Ban },
   { key: "taxes", label: "Taxes & Fees", icon: Percent },
 ];
 
-export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, rooms = [], allRooms = [], scopeRoomId }) {
+export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, rooms = [], allRooms = [], properties = [], scopeRoomId }) {
   const data = useData();
   const [form, setForm] = useState(() => (initial ? { ...EMPTY, ...initial } : EMPTY));
   const [errors, setErrors] = useState({});
@@ -107,7 +120,7 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
     } else if (scopeRoomId) {
       baseline = { ...EMPTY, ratePlanRooms: [blankRatePlanRoomCard(scopeRoomId, true)] };
     } else {
-      baseline = { ...EMPTY, ratePlanRooms: [blankRatePlanRoomCard()] };
+      baseline = { ...EMPTY, ratePlanRooms: [] };
     }
     setForm(baseline);
     setErrors({});
@@ -133,7 +146,7 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
     return s;
   }, [form]);
 
-  // --- Rooms tab helpers ---
+  // --- Room/Property selection (Overview) + Pricing Ranges tab helpers ---
   const roomIdCounts = useMemo(() => {
     const counts = {};
     form.ratePlanRooms.forEach((c) => { if (c.roomId) counts[c.roomId] = (counts[c.roomId] || 0) + 1; });
@@ -141,23 +154,12 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
   }, [form.ratePlanRooms]);
 
   const hasAnyRoomIssue = useMemo(
-    () => form.ratePlanRooms.some((c) => !c.roomId || roomIdCounts[c.roomId] > 1 || conflictingRowIds(c.pricingRanges).size > 0),
+    () => form.ratePlanRooms.length === 0 || form.ratePlanRooms.some((c) => !c.roomId || roomIdCounts[c.roomId] > 1 || conflictingRowIds(c.pricingRanges).size > 0),
     [form.ratePlanRooms, roomIdCounts]
   );
 
-  const roomOptionsForCard = (cardId) => {
-    const chosenElsewhere = new Set(form.ratePlanRooms.filter((c) => c.id !== cardId && c.roomId).map((c) => c.roomId));
-    return rooms.filter((r) => !chosenElsewhere.has(r.id));
-  };
-
   const updateCard = (cardId, patch) =>
     setForm((f) => ({ ...f, ratePlanRooms: f.ratePlanRooms.map((c) => (c.id === cardId ? { ...c, ...patch } : c)) }));
-
-  const addCard = () => {
-    const card = blankRatePlanRoomCard();
-    setForm((f) => ({ ...f, ratePlanRooms: [...f.ratePlanRooms, card] }));
-    setExpandedIds((s) => new Set([...s, card.id]));
-  };
 
   const removeCard = (cardId) => {
     setForm((f) => ({ ...f, ratePlanRooms: f.ratePlanRooms.filter((c) => c.id !== cardId) }));
@@ -168,20 +170,36 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
     });
   };
 
-  const duplicateCard = (card) => {
-    const copy = {
-      id: `NEW-${Math.random().toString(36).slice(2, 10)}`,
-      isNew: true,
-      roomId: "",
-      pricingRanges: card.pricingRanges.map((r) => ({ ...r, id: `NEW-${Math.random().toString(36).slice(2, 10)}`, isNew: true })),
-    };
-    setForm((f) => {
-      const idx = f.ratePlanRooms.findIndex((c) => c.id === card.id);
-      const next = [...f.ratePlanRooms];
-      next.splice(idx + 1, 0, copy);
-      return { ...f, ratePlanRooms: next };
-    });
-    setExpandedIds((s) => new Set([...s, copy.id]));
+  // The template a newly-added room clones its Pricing Ranges from — the
+  // first existing card that already has rows, so cloning behavior is
+  // consistent whether one room or many are added at once.
+  const cloneTemplateCard = () => form.ratePlanRooms.find((c) => c.pricingRanges.length > 0) || null;
+
+  const selectedRoomIds = useMemo(() => new Set(form.ratePlanRooms.filter((c) => c.roomId).map((c) => c.roomId)), [form.ratePlanRooms]);
+
+  const toggleRoom = (roomId) => {
+    if (selectedRoomIds.has(roomId)) {
+      const cardsToRemove = form.ratePlanRooms.filter((c) => c.roomId === roomId).map((c) => c.id);
+      setForm((f) => ({ ...f, ratePlanRooms: f.ratePlanRooms.filter((c) => !cardsToRemove.includes(c.id)) }));
+      setExpandedIds((s) => { const n = new Set(s); cardsToRemove.forEach((id) => n.delete(id)); return n; });
+    } else {
+      const template = cloneTemplateCard();
+      const card = template ? cloneRatePlanRoomCard(roomId, template) : blankRatePlanRoomCard(roomId);
+      setForm((f) => ({ ...f, ratePlanRooms: [...f.ratePlanRooms, card] }));
+      setExpandedIds((s) => new Set([...s, card.id]));
+    }
+  };
+
+  const [propertyForBulkSelect, setPropertyForBulkSelect] = useState("");
+  const selectAllRoomsInProperty = () => {
+    if (!propertyForBulkSelect) return;
+    const template = cloneTemplateCard();
+    const roomIdsInProperty = allRooms.filter((r) => r.propertyId === propertyForBulkSelect).map((r) => r.id);
+    const newRoomIds = roomIdsInProperty.filter((id) => !selectedRoomIds.has(id));
+    if (newRoomIds.length === 0) return;
+    const newCards = newRoomIds.map((roomId) => (template ? cloneRatePlanRoomCard(roomId, template) : blankRatePlanRoomCard(roomId)));
+    setForm((f) => ({ ...f, ratePlanRooms: [...f.ratePlanRooms, ...newCards] }));
+    setExpandedIds((s) => new Set([...s, ...newCards.map((c) => c.id)]));
   };
 
   const toggleExpand = (cardId) =>
@@ -198,7 +216,7 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
   };
   const isSectionComplete = (key) => {
     if (sectionHasError(key)) return false;
-    if (key === "overview") return !!form.name.trim();
+    if (key === "overview") return !!form.name.trim() && !hasAnyRoomIssue;
     if (key === "rooms") return form.ratePlanRooms.length > 0;
     return true;
   };
@@ -330,15 +348,52 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
                   getIcon={ratePlanFeatureIcon}
                   resetValue={baselineRef.current.status}
                 />
-                <Field label="Start Date" id="rp-start-date" modified={dirtyFields.has("startDate")}>
-                  <Input id="rp-start-date" type="date" value={form.startDate || ""} onChange={set("startDate")} />
-                </Field>
-                <Field label="End Date" id="rp-end-date" error={errors.endDate} modified={dirtyFields.has("endDate")} hint="Leave both dates blank for a rate plan that is always applicable.">
-                  <Input id="rp-end-date" type="date" value={form.endDate || ""} onChange={set("endDate")} />
-                </Field>
-                <Field label="Base Price" id="rp-base-price" modified={dirtyFields.has("basePrice")} hint="Default/base selling price. Leave blank if pricing is fully defined by the Rooms below.">
-                  <Input id="rp-base-price" type="number" min="0" step="0.01" tabular value={form.basePrice} onChange={setNum("basePrice")} placeholder="Optional" />
-                </Field>
+              </div>
+            )}
+
+            {active === "overview" && (
+              <div style={{ marginTop: "var(--space-6)" }}>
+                <span className="field__label">Rooms</span>
+                {errors.ratePlanRooms && (
+                  <p className="rate-plan-room-card__error" style={{ marginBottom: "var(--space-2)" }}>{errors.ratePlanRooms}</p>
+                )}
+                <div className="master-manager__list" style={{ marginTop: 6 }}>
+                  {rooms.length === 0 ? (
+                    <p className="master-manager__hint">No rooms available to select.</p>
+                  ) : (
+                    rooms.map((r) => (
+                      <div key={r.id} className="master-manager__row" onClick={() => toggleRoom(r.id)} style={{ cursor: "pointer" }}>
+                        <Checkbox checked={selectedRoomIds.has(r.id)} onChange={() => toggleRoom(r.id)} label={r.label} />
+                        <span className="master-manager__name">{r.label}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {properties.length > 0 && (
+                  <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", marginTop: "var(--space-3)" }}>
+                    <div style={{ flex: 1, maxWidth: 320 }}>
+                      <Select
+                        placeholder="Select a property"
+                        options={properties.map((p) => p.name)}
+                        value={properties.find((p) => p.id === propertyForBulkSelect)?.name || ""}
+                        onChange={(e) => {
+                          const p = properties.find((pp) => pp.name === e.target.value);
+                          setPropertyForBulkSelect(p?.id || "");
+                        }}
+                      />
+                    </div>
+                    <Button type="button" variant="secondary" size="sm" onClick={selectAllRoomsInProperty} disabled={!propertyForBulkSelect}>
+                      Select All Rooms in Property
+                    </Button>
+                  </div>
+                )}
+
+                <p className="notes-panel__hint" style={{ marginTop: "var(--space-3)", display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <Info size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                  Selecting multiple rooms or an entire property clones this Rate Plan's full configuration — Pricing Ranges, Meal Plan,
+                  Cancellation Policy, and Taxes — to every selected room. You can fine-tune Pricing Ranges per room afterward in the Pricing Ranges tab.
+                </p>
               </div>
             )}
 
@@ -360,11 +415,11 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
                 {errors.ratePlanRooms && (
                   <p className="rate-plan-room-card__error" style={{ marginBottom: "var(--space-4)" }}>{errors.ratePlanRooms}</p>
                 )}
+                {form.ratePlanRooms.length === 0 && (
+                  <p className="master-manager__hint">No rooms selected yet — pick rooms in the Overview tab first.</p>
+                )}
                 {form.ratePlanRooms.map((card) => {
                   const conflicts = conflictingRowIds(card.pricingRanges);
-                  const duplicate = card.roomId && roomIdCounts[card.roomId] > 1;
-                  const missingRoom = !card.roomId;
-                  const cardRoomOptions = roomOptionsForCard(card.id);
                   const expanded = expandedIds.has(card.id);
                   const selectedOption = rooms.find((r) => r.id === card.roomId);
                   return (
@@ -374,22 +429,10 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
                           {expanded ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
                         </button>
                         <div className="rate-plan-room-card__room-field">
-                          <Select
-                            placeholder="Select a room"
-                            options={cardRoomOptions.map((r) => r.label)}
-                            value={selectedOption ? selectedOption.label : ""}
-                            onChange={(e) => {
-                              const r = cardRoomOptions.find((rr) => rr.label === e.target.value);
-                              updateCard(card.id, { roomId: r?.id || "" });
-                            }}
-                            disabled={!!card.locked}
-                          />
-                          {missingRoom && <div className="rate-plan-room-card__error">Room is required.</div>}
-                          {duplicate && <div className="rate-plan-room-card__error">This room is already used by another card.</div>}
+                          <strong>{selectedOption ? selectedOption.label : "Unknown room"}</strong>
                           {conflicts.size > 0 && <div className="rate-plan-room-card__error">This card has overlapping Pricing Range rows.</div>}
                         </div>
                         <div className="rate-plan-room-card__actions">
-                          <button type="button" className="table__action-btn" title="Duplicate" onClick={() => duplicateCard(card)}><Copy size={15} strokeWidth={2} /></button>
                           <button type="button" className="table__action-btn table__action-btn--danger" title="Remove Room" onClick={() => removeCard(card.id)}><Trash2 size={15} strokeWidth={2} /></button>
                         </div>
                       </div>
@@ -401,9 +444,6 @@ export function RatePlanForm({ open, onClose, onSubmit, initial, roomLabel, room
                     </Card>
                   );
                 })}
-                <button type="button" className="btn btn--ghost btn--sm" onClick={addCard}>
-                  <Plus size={14} strokeWidth={2} /> Add Room
-                </button>
               </div>
             )}
 

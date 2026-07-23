@@ -15,7 +15,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 //
 // Also lets the user create a brand-new comp set inline (name only — the
 // full Competitive Set form covers market/tags/notes for later editing)
-// without leaving the Competitor Hotels page, since Competitive Sets are
+// without leaving the Competitor Properties page, since Competitive Sets are
 // meant to be organized *from* the competitor workflow, never a prerequisite
 // to it.
 export function CompSetAssignModal({ open, onClose, competitorIds = [], groups = [], propertyId, onAssign }) {

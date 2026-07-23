@@ -11,7 +11,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 
 // Lightweight create/rename/archive/delete for Competitive Sets, reachable
-// directly from the Competitor Hotels page — no navigation away needed for
+// directly from the Competitor Properties page — no navigation away needed for
 // everyday comp set housekeeping. Every action here only ever touches the
 // comp set row itself (or its `compSetMemberships` references); a competitor's
 // own record and configuration are never read from or written to by this

@@ -23,7 +23,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { useSelection } from "../../hooks/useSelection.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { usePersistedState } from "../../hooks/usePersistedState.js";
-import { usePaginatedSortedFiltered, formatDate, formatCurrency } from "../../lib/format.js";
+import { usePaginatedSortedFiltered, formatDate } from "../../lib/format.js";
 import { RATE_PLAN_STATUSES, mealPlanLabel } from "../../mocks/ratePlans.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 import { TagChips } from "../../components/ui/TagChips.jsx";
@@ -37,7 +37,6 @@ const BASE_COLUMNS = [
   { key: "property", label: "Property", sortable: false, width: 160 },
   { key: "mealPlan", label: "Meal Plan", sortable: false, width: 150 },
   { key: "pricingRange", label: "Pricing Range", sortable: false, width: 190 },
-  { key: "basePrice", label: "Base Price", sortable: false, width: 110 },
   { key: "status", label: "Status", sortable: true, width: 100 },
   { key: "actions", label: "", sortable: false, width: 150 },
 ];
@@ -118,6 +117,20 @@ export function RatePlansPage() {
   // room within the current property/room selection.
   const roomNamesForRatePlan = (ratePlanId) =>
     data.ratePlanRooms.filter((rp) => rp.ratePlanId === ratePlanId).map((rp) => roomLookup(rp.roomId)?.name).filter(Boolean);
+
+  // A Rate Plan has no applicability window of its own anymore — Pricing
+  // Ranges (per Room) are the only validity mechanism, so this is a display
+  // aggregate only, computed on the fly from every linked room's rows.
+  const pricingRangeSummary = (ratePlanId) => {
+    const ratePlanRoomIds = data.ratePlanRooms.filter((rp) => rp.ratePlanId === ratePlanId).map((rp) => rp.id);
+    const rows = data.pricingRanges.filter((pr) => ratePlanRoomIds.includes(pr.ratePlanRoomId));
+    if (rows.length === 0) return "No pricing ranges yet";
+    if (rows.some((r) => r.alwaysApplicable || (!r.startDate && !r.endDate))) return "Always applicable";
+    const starts = rows.map((r) => r.startDate).filter(Boolean).sort();
+    const ends = rows.map((r) => r.endDate).filter(Boolean).sort();
+    if (!starts.length || !ends.length) return "Always applicable";
+    return `${formatDate(starts[0])} – ${formatDate(ends[ends.length - 1])}`;
+  };
 
   const ratePlansInScope = useMemo(() => {
     const roomIdSet = new Set(effectiveRoomIds);
@@ -252,9 +265,7 @@ export function RatePlansPage() {
       },
     },
     { label: "Meal Plan", value: (rp) => `${rp.mealPlan} (${mealPlanLabel(rp.mealPlan)})` },
-    { label: "Start Date", value: (rp) => rp.startDate || "" },
-    { label: "End Date", value: (rp) => rp.endDate || "" },
-    { label: "Base Price", value: (rp) => (rp.basePrice ?? "") },
+    { label: "Pricing Range", value: (rp) => pricingRangeSummary(rp.id) },
     { label: "Status", value: (rp) => rp.status },
   ];
   const exportRowsData = selection.count ? ratePlansInView.filter((rp) => selection.selected.includes(rp.id)) : pageData;
@@ -370,9 +381,8 @@ export function RatePlansPage() {
                   <td className="table__cell-muted">{properties.join(", ") || "—"}</td>
                   <td title={mealPlanLabel(rp.mealPlan)}>{rp.mealPlan}</td>
                   <td className="table__cell-muted">
-                    {rp.startDate || rp.endDate ? `${formatDate(rp.startDate)} – ${formatDate(rp.endDate)}` : "Always applicable"}
+                    {pricingRangeSummary(rp.id)}
                   </td>
-                  <td className="tabular table__cell-muted">{rp.basePrice ? formatCurrency(rp.basePrice) : "—"}</td>
                   <td><StatusBadge status={rp.status} /></td>
                   <td>
                     <div className="table__actions">
@@ -410,6 +420,7 @@ export function RatePlansPage() {
         roomLabel={selectedRoom?.name}
         rooms={roomOptions}
         allRooms={data.rooms}
+        properties={data.properties}
         scopeRoomId={scopeRoomId}
       />
 

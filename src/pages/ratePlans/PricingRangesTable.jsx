@@ -14,6 +14,7 @@ const OCCUPANCY_OPTIONS = ["", "Single", "Double", "Triple", "Quad"];
 const STATUS_OPTIONS = ["Draft", "Active", "Archived"];
 
 const COLUMNS = [
+  { key: "alwaysApplicable", label: "Always Applicable", width: 130 },
   { key: "startDate", label: "Start Date", width: 140 },
   { key: "endDate", label: "End Date", width: 140 },
   { key: "occupancy", label: "Occupancy", width: 120 },
@@ -32,7 +33,7 @@ export function blankPricingRangeRow() {
   return {
     id: `NEW-${Math.random().toString(36).slice(2, 10)}`,
     isNew: true,
-    startDate: "", endDate: "", occupancy: "",
+    alwaysApplicable: false, startDate: "", endDate: "", occupancy: "",
     price: "", currency: CURRENCIES[0], taxInclusive: false, taxPercent: 0,
     cancellationPolicy: CANCELLATION_POLICIES[0], status: "Draft",
   };
@@ -52,6 +53,12 @@ export function PricingRangesTable({ rows, onChange, onPersistedDelete }) {
   const updateRow = (id, patch) => {
     onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
+
+  // Always Applicable is the explicit, unambiguous form of "no validity
+  // period" — checking it clears both dates so a row is never saved in the
+  // contradictory state of "always applicable" + real bounded dates.
+  const toggleAlwaysApplicable = (id, checked) =>
+    updateRow(id, checked ? { alwaysApplicable: true, startDate: "", endDate: "" } : { alwaysApplicable: false });
 
   const addRow = () => onChange([...rows, blankPricingRangeRow()]);
 
@@ -96,6 +103,9 @@ export function PricingRangesTable({ rows, onChange, onPersistedDelete }) {
           Some Pricing Range rows have overlapping date ranges for the same occupancy. Resolve the highlighted rows before saving.
         </div>
       )}
+      <p className="master-manager__hint" style={{ marginBottom: "var(--space-3)" }}>
+        Leave both dates blank or enable "Always Applicable" if this pricing range has no validity period and should always remain active.
+      </p>
       <Table
         columns={COLUMNS}
         data={rows}
@@ -106,8 +116,16 @@ export function PricingRangesTable({ rows, onChange, onPersistedDelete }) {
           const conflicted = conflicts.has(row.id);
           return (
             <tr key={key} className={conflicted ? "pricing-ranges-table__row--conflict" : ""} title={conflicted ? "Overlaps another row with the same (or Any) occupancy." : undefined}>
-              <td><Input type="date" value={row.startDate || ""} onChange={(e) => updateRow(row.id, { startDate: e.target.value })} /></td>
-              <td><Input type="date" value={row.endDate || ""} onChange={(e) => updateRow(row.id, { endDate: e.target.value })} /></td>
+              <td style={{ textAlign: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={!!row.alwaysApplicable}
+                  onChange={(e) => toggleAlwaysApplicable(row.id, e.target.checked)}
+                  aria-label="Always applicable"
+                />
+              </td>
+              <td><Input type="date" value={row.startDate || ""} onChange={(e) => updateRow(row.id, { startDate: e.target.value })} disabled={!!row.alwaysApplicable} /></td>
+              <td><Input type="date" value={row.endDate || ""} onChange={(e) => updateRow(row.id, { endDate: e.target.value })} disabled={!!row.alwaysApplicable} /></td>
               <td>
                 <Select
                   options={OCCUPANCY_OPTIONS.filter((o) => o !== "")}

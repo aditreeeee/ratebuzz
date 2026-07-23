@@ -2,28 +2,30 @@ import React, { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Tag, MapPin, Pencil, Copy, Archive, RotateCcw, Trash2,
-  LayoutGrid, BedDouble, UtensilsCrossed, Ban,
-  Percent, StickyNote, History, Plus,
+  LayoutGrid, BedDouble, Layers, UtensilsCrossed, Ban,
+  Percent, StickyNote, History,
 } from "lucide-react";
 import { Breadcrumbs } from "../../components/ui/Breadcrumbs.jsx";
+import { propertyScopedCrumbs } from "../../lib/breadcrumbs.js";
 import { Tabs } from "../../components/ui/Tabs.jsx";
 import { Card } from "../../components/ui/Card.jsx";
 import { Button } from "../../components/ui/Button.jsx";
 import { StatusBadge } from "../../components/ui/Badge.jsx";
-import { Textarea, Select } from "../../components/ui/Input.jsx";
+import { Textarea } from "../../components/ui/Input.jsx";
 import { ConfirmModal } from "../../components/ui/Modal.jsx";
 import { EmptyState } from "../../components/ui/EmptyState.jsx";
-import { formatDate, formatCurrency } from "../../lib/format.js";
+import { formatDate } from "../../lib/format.js";
 import { useData } from "../../context/DataContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { mealPlanLabel } from "../../mocks/ratePlans.js";
 import { RatePlanForm } from "./RatePlanForm.jsx";
 import { RatePlanRoomPricingRangesEditor } from "./PricingRangesTable.jsx";
+import { RoomInfoCard } from "./RoomInfoCard.jsx";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
-  { key: "rooms", label: "Rooms", icon: BedDouble },
+  { key: "rooms", label: "Pricing Ranges", icon: Layers },
   { key: "mealPlan", label: "Meal Plan", icon: UtensilsCrossed },
   { key: "cancellation", label: "Cancellation Policy", icon: Ban },
   { key: "taxes", label: "Taxes & Fees", icon: Percent },
@@ -31,26 +33,19 @@ const TABS = [
   { key: "audit", label: "Audit Information", icon: History },
 ];
 
-// One card per Rate Plan Room — room picker (to change which room this card
-// applies to), a delete action, and its own Pricing Ranges editor. This tab,
-// unlike the Add/Edit modal, persists immediately since the parent Rate Plan
-// already exists here (the same "genuinely editable" convention this
-// codebase uses elsewhere for profile-page tabs).
-function RatePlanRoomCard({ ratePlanRoom, roomOptions, onChangeRoom, onDelete, canDelete }) {
+// One card per Rate Plan Room — its own Pricing Ranges editor and a delete
+// action. Room membership itself is managed from the Overview tab's
+// Rooms/Property selector, not here, so there's no room picker on this card.
+// This tab, unlike the Add/Edit modal, persists immediately since the parent
+// Rate Plan already exists here (the same "genuinely editable" convention
+// this codebase uses elsewhere for profile-page tabs).
+function RatePlanRoomCard({ ratePlanRoom, roomOptions, onDelete, canDelete }) {
   const room = roomOptions.find((r) => r.id === ratePlanRoom.roomId);
   return (
     <Card className="rate-plan-room-card" padded={false} glow={false}>
       <div className="rate-plan-room-card__header">
         <div className="rate-plan-room-card__room-field">
-          <Select
-            placeholder="Select a room"
-            options={roomOptions.map((r) => r.label)}
-            value={room ? room.label : ""}
-            onChange={(e) => {
-              const r = roomOptions.find((rr) => rr.label === e.target.value);
-              if (r) onChangeRoom(r.id);
-            }}
-          />
+          <strong>{room ? room.label : "Unknown room"}</strong>
         </div>
         <div className="rate-plan-room-card__actions">
           <button
@@ -82,22 +77,15 @@ export function RatePlanProfilePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState(null);
   const [notes, setNotes] = useState("");
-  const [newRoomId, setNewRoomId] = useState("");
 
   const ratePlan = data.ratePlans.find((rp) => rp.id === id);
   const ratePlanRooms = useMemo(() => (ratePlan ? data.roomsForRatePlan(ratePlan.id) : []), [data, ratePlan]);
   const roomLookup = (roomId) => data.rooms.find((r) => r.id === roomId);
   const propertyForRoom = (room) => (room ? data.properties.find((p) => p.id === room.propertyId) : null);
-  const pricingRangeCount = ratePlanRooms.reduce((sum, rp) => sum + rp.pricingRanges.length, 0);
-
-  // Rooms already used by this rate plan can't be picked again for another
-  // card (nor re-added via "+ Add Room").
-  const usedRoomIds = new Set(ratePlanRooms.map((rp) => rp.roomId));
   const allRoomOptions = useMemo(
     () => data.rooms.map((r) => ({ id: r.id, label: `${r.name} — ${propertyForRoom(r)?.name || "Unknown Property"}` })),
     [data.rooms, data.properties]
   );
-  const roomOptionsForNew = allRoomOptions.filter((r) => !usedRoomIds.has(r.id));
 
   if (!ratePlan) {
     return (
@@ -129,18 +117,6 @@ export function RatePlanProfilePage() {
     navigate("/portal/rate-plans");
   };
 
-  const handleAddRoom = () => {
-    if (!newRoomId) return;
-    data.addRatePlanRoom({ ratePlanId: ratePlan.id, roomId: newRoomId });
-    toast.success("Room added to rate plan.");
-    setNewRoomId("");
-  };
-
-  const handleChangeRoom = (ratePlanRoom, roomId) => {
-    data.updateRatePlanRoom({ ...ratePlanRoom, roomId });
-    toast.success("Room updated.");
-  };
-
   const handleDeleteRatePlanRoom = () => {
     data.deleteRatePlanRoom(confirmDeleteRoomId);
     toast.success("Room removed from rate plan.");
@@ -155,8 +131,7 @@ export function RatePlanProfilePage() {
     <div>
       <Breadcrumbs
         items={[
-          { label: "Properties", to: "/portal/properties" },
-          ...(firstProperty ? [{ label: firstProperty.name, to: `/portal/properties/${firstProperty.id}` }] : []),
+          ...propertyScopedCrumbs(firstProperty),
           { label: ratePlan.name },
         ]}
       />
@@ -190,27 +165,23 @@ export function RatePlanProfilePage() {
 
       <div className="page-section">
         <Card className="current-price-card">
-          <div className="current-price-card__label"><Tag size={14} strokeWidth={2} /> Pricing Range</div>
+          <div className="current-price-card__label"><Tag size={14} strokeWidth={2} /> {ratePlan.name}</div>
           <div className="current-price-card__row">
             <div className="current-price-card__stat">
-              <span>Applicable Window</span>
-              <strong>
-                {ratePlan.startDate || ratePlan.endDate
-                  ? `${formatDate(ratePlan.startDate)} – ${formatDate(ratePlan.endDate)}`
-                  : "Always applicable"}
-              </strong>
+              <span>Meal Plan</span>
+              <strong title={mealPlanLabel(ratePlan.mealPlan)}>{ratePlan.mealPlan}</strong>
             </div>
             <div className="current-price-card__stat">
-              <span>Base Price</span>
-              <strong className="tabular">{ratePlan.basePrice ? formatCurrency(ratePlan.basePrice) : "—"}</strong>
+              <span>Linked Room(s)</span>
+              <strong>{roomNames.length ? (roomNames.length > 2 ? `${roomNames.length} rooms` : roomNames.join(", ")) : "None yet"}</strong>
             </div>
             <div className="current-price-card__stat">
-              <span>Rooms</span>
-              <strong className="tabular">{ratePlanRooms.length}</strong>
+              <span>Property</span>
+              <strong>{firstProperty?.name || "—"}</strong>
             </div>
             <div className="current-price-card__stat">
-              <span>Pricing Range Rows</span>
-              <strong className="tabular">{pricingRangeCount}</strong>
+              <span>Status</span>
+              <strong><StatusBadge status={ratePlan.status} /></strong>
             </div>
           </div>
         </Card>
@@ -221,50 +192,47 @@ export function RatePlanProfilePage() {
       </div>
 
       {active === "overview" && (
-        <Card>
-          <div className="detail-grid">
-            <div className="detail-field"><span>Rate Plan ID</span><strong className="tabular">{ratePlan.id}</strong></div>
-            <div className="detail-field"><span>Name</span><strong>{ratePlan.name}</strong></div>
-            <div className="detail-field"><span>Status</span><strong><StatusBadge status={ratePlan.status} /></strong></div>
-            <div className="detail-field"><span>Start Date</span><strong className="tabular">{formatDate(ratePlan.startDate)}</strong></div>
-            <div className="detail-field"><span>End Date</span><strong className="tabular">{formatDate(ratePlan.endDate)}</strong></div>
-            <div className="detail-field"><span>Base Price</span><strong className="tabular">{ratePlan.basePrice ? formatCurrency(ratePlan.basePrice) : "—"}</strong></div>
-            <div className="detail-field"><span>Rooms</span><strong className="tabular">{ratePlanRooms.length}</strong></div>
-          </div>
-        </Card>
+        <>
+          <Card>
+            <div className="detail-grid">
+              <div className="detail-field"><span>Rate Plan ID</span><strong className="tabular">{ratePlan.id}</strong></div>
+              <div className="detail-field"><span>Name</span><strong>{ratePlan.name}</strong></div>
+              <div className="detail-field"><span>Status</span><strong><StatusBadge status={ratePlan.status} /></strong></div>
+              <div className="detail-field"><span>Rooms</span><strong className="tabular">{ratePlanRooms.length}</strong></div>
+            </div>
+          </Card>
+
+          {/* Room/Property association is edited only via the Edit button (RatePlanForm's
+              own Overview room/property selector) — not inline here, per the Details page's
+              simplified, read-only Overview. */}
+          {ratePlanRooms.length > 0 && (
+            <Card style={{ marginTop: "var(--space-4)" }}>
+              <div className="config-summary__section-title">
+                <span className="config-summary__section-title-text"><BedDouble size={14} strokeWidth={2} /> Room Information</span>
+              </div>
+              {ratePlanRooms.map((rp) => {
+                const room = roomLookup(rp.roomId);
+                return <RoomInfoCard key={rp.id} room={room} propertyName={propertyForRoom(room)?.name} />;
+              })}
+            </Card>
+          )}
+        </>
       )}
 
       {active === "rooms" && (
         <Card>
           {ratePlanRooms.length === 0 && (
-            <EmptyState icon={BedDouble} title="No rooms yet" message="This rate plan isn't linked to any rooms yet. Add one below." />
+            <EmptyState icon={BedDouble} title="No rooms yet" message="Select rooms or a property from the Overview tab to link them to this rate plan." />
           )}
           {ratePlanRooms.map((rp) => (
             <RatePlanRoomCard
               key={rp.id}
               ratePlanRoom={rp}
-              roomOptions={[...roomOptionsForNew, ...(roomLookup(rp.roomId) ? [{ id: rp.roomId, label: `${roomLookup(rp.roomId).name} — ${propertyForRoom(roomLookup(rp.roomId))?.name || "Unknown Property"}` }] : [])]}
-              onChangeRoom={(roomId) => handleChangeRoom(rp, roomId)}
+              roomOptions={allRoomOptions}
               onDelete={() => setConfirmDeleteRoomId(rp.id)}
               canDelete
             />
           ))}
-          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-end", marginTop: "var(--space-4)" }}>
-            <div style={{ flex: 1, maxWidth: 320 }}>
-              <Select
-                placeholder="Select a room to add"
-                options={roomOptionsForNew.map((r) => r.label)}
-                value={roomOptionsForNew.find((r) => r.id === newRoomId)?.label || ""}
-                onChange={(e) => {
-                  const r = roomOptionsForNew.find((rr) => rr.label === e.target.value);
-                  setNewRoomId(r?.id || "");
-                }}
-              />
-            </div>
-            <Button variant="secondary" size="sm" icon={Plus} onClick={handleAddRoom} disabled={!newRoomId}>
-              Add Room
-            </Button>
-          </div>
         </Card>
       )}
 
@@ -336,6 +304,7 @@ export function RatePlanProfilePage() {
         initial={ratePlan}
         rooms={allRoomOptions}
         allRooms={data.rooms}
+        properties={data.properties}
         scopeRoomId=""
       />
 

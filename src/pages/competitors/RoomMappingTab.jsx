@@ -120,7 +120,7 @@ export function RoomMappingTab({ competitor }) {
         />
       </div>
 
-      <RoomMappingForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} rooms={rooms} competitorName={competitor.hotelName} />
+      <RoomMappingForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} initial={editing} rooms={rooms} competitorName={competitor.propertyName} />
 
       <ConfirmModal
         open={!!confirmDelete}

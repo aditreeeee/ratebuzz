@@ -54,7 +54,7 @@ export function ExportMenu({ rows, columns, filenameBase, selectedCount }) {
           <button role="menuitem" className="export-menu__item" onClick={() => handle("excel")}>
             <FileSpreadsheet size={15} strokeWidth={2} /> Excel (.xls)
           </button>
-          <button role="menuitem" className="export-menu__item export-menu__item--disabled" onClick={() => handle("pdf")}>
+          <button role="menuitem" className="export-menu__item export-menu__item--disabled" disabled>
             <FileText size={15} strokeWidth={2} /> PDF <span className="export-menu__soon">Coming soon</span>
           </button>
         </div>
